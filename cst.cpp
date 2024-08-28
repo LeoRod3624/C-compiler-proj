@@ -108,10 +108,33 @@ CNum* C_num(){
     return result;
 }
 
+// num_list = "" 
+//          | "*" num num_list 
+//          | "/" num num_list
 CNumList* C_num_list(){
-    CNumList* result = new CNumList();
     // since our test case is 1+2+3, and doesn't use
     // "*" or "/", we can implement the rest later.
+    CNumList* result = new CNumList();
+
+    if(tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "/"){
+        if(tokens[tokens_i]->punct == "*"){
+            CPunct* times = new CPunct();
+            times->punct = tokens[tokens_i++]->punct;
+
+            result->times_or_divides = times;
+            result->num = C_num();
+            result->num_list = C_num_list();        
+        }
+        else{
+            CPunct* divide = new CPunct();
+            divide->punct = tokens[tokens_i++]->punct;
+
+            result->times_or_divides = divide;
+            result->num = C_num();
+            result->num_list = C_num_list();
+        }
+    }
+
     return result;
 }
 
