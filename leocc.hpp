@@ -115,28 +115,39 @@ CNode* concrete_parse();
 //END CONCRETE SYNTAX TREE
 
 //START ABSTRACT SYNTAX TREE
-enum NodeKind {
-    ND_NUM,
-    ND_ADD,
-    ND_SUB
-};
 class Node {
 public:
-    NodeKind kind;
-
-    // fields for ND_NUM
-    int num;
-
-    //fields for ND_ADD or ND_SUB
-    Node *lhs, *rhs;
-
-    // ND_NUM ctor
-    Node(NodeKind kind, int n) : kind(kind), num(n) {}
-
-    // ND_ADD or ND_SUB ctor
-    Node(NodeKind kind, Node* l, Node* r) : kind(kind), lhs(l), rhs(r) {}
+    virtual void codegen() = 0;
 };
-
+class NodeExpr : public Node {
+    virtual void codegen() = 0;
+};
+class NodeBinOp : public NodeExpr {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+    virtual void codegen() = 0;
+};
+class NodeAdd : public NodeBinOp {
+public:
+    void codegen();
+};
+class NodeSub : public NodeBinOp {
+public:
+    void codegen();
+};
+class NodeMul : public NodeBinOp {
+public:
+    void codegen();
+};
+class NodeDiv : public NodeBinOp {
+public:
+    void codegen();
+};
+class NodeNum : public NodeExpr {
+    public:
+    int num_literal;
+    void codegen();
+};
 Node* abstract_parse();
 
 //END ABSTRACT SYNTAX TREE

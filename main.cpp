@@ -38,10 +38,10 @@ int main(int argc, char* argv[]){
 
     tokens_i = 0;
     current_tok = tokens[tokens_i];
-
-    Node* top_expr = abstract_parse();
+ 
+    Node* abstract_tree = abstract_parse();
     
-    do_codegen(top_expr);
+    do_codegen(abstract_tree);
 
     cout << "ret" << endl;
 
