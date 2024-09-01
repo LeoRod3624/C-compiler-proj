@@ -52,15 +52,15 @@ void CMul::print_cst(int depth){
         cout << " ";
     }
     cout << "|-mul" << endl;
-    num->print_cst(depth+1);
-    num_list->print_cst(depth+1);
+    primary->print_cst(depth+1);
+    primary_list->print_cst(depth+1);
 }
 
-void CNumList::print_cst(int depth){
+void CPrimaryList::print_cst(int depth){
     for(int i = 0; i < depth; i++){
         cout << " ";
     }
-    cout << "|-num_list" << endl;
+    cout << "|-primary_list" << endl;
     
     if(times_or_divides == nullptr){
         string spaces = "";
@@ -73,11 +73,12 @@ void CNumList::print_cst(int depth){
     }
     else{
         times_or_divides->print_cst(depth+1);
-        num->print_cst(depth+1);
-        num_list->print_cst(depth+1);
+        primary->print_cst(depth+1);
+        primary_list->print_cst(depth+1);
     }
     
 }
+
 void CExpr::print_cst(int depth) {
     for(int i = 0; i < depth; i++){
         cout << " ";
@@ -85,6 +86,23 @@ void CExpr::print_cst(int depth) {
     cout << "|-expr" << endl;
     mul->print_cst(depth+1);
     mul_list->print_cst(depth+1);
+}
+
+void CPrimary::print_cst(int depth){
+    for(int i = 0; i < depth; i++){
+        cout << " ";
+    }
+    cout << "|-primary" << endl;
+    if(num != nullptr){
+        num->print_cst(depth+1);
+    }
+    else{
+        assert(leftParenthesis && "SHOULD NOT BE NULL");
+        leftParenthesis->print_cst(depth+1);
+        expr->print_cst(depth+1);
+        rightParenthesis->print_cst(depth+1);
+    }
+    ;
 }
 
 void CNum::print_cst(int depth){
@@ -108,13 +126,32 @@ CNum* C_num(){
     return result;
 }
 
+CExpr* C_expr();
+
+CPrimary* C_primary(){
+    CPrimary* result = new CPrimary();
+    if(tokens[tokens_i]->kind == TK_NUM){
+        result->num = C_num();
+    }
+    else{
+        assert(tokens[tokens_i]->punct == "(" && "SHOULD BE '(', SOMETHING WENT WRONG");
+        result->leftParenthesis = new CPunct();
+        result->leftParenthesis->punct = tokens[tokens_i++]->punct;
+        result->expr = C_expr();
+        assert(tokens[tokens_i]->punct == ")" && "SHOULD BE ')', SOMETHING WENT WRONG");
+        result->rightParenthesis = new CPunct();
+        result->rightParenthesis->punct = tokens[tokens_i++]->punct;
+    }
+    return result;
+};
+
 // num_list = "" 
 //          | "*" num num_list 
 //          | "/" num num_list
-CNumList* C_num_list(){
+CPrimaryList* C_primary_list(){
     // since our test case is 1+2+3, and doesn't use
     // "*" or "/", we can implement the rest later.
-    CNumList* result = new CNumList();
+    CPrimaryList* result = new CPrimaryList();
 
     if(tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "/"){
         if(tokens[tokens_i]->punct == "*"){
@@ -122,16 +159,16 @@ CNumList* C_num_list(){
             times->punct = tokens[tokens_i++]->punct;
 
             result->times_or_divides = times;
-            result->num = C_num();
-            result->num_list = C_num_list();        
+            result->primary = C_primary();
+            result->primary_list = C_primary_list();        
         }
         else{
             CPunct* divide = new CPunct();
             divide->punct = tokens[tokens_i++]->punct;
 
             result->times_or_divides = divide;
-            result->num = C_num();
-            result->num_list = C_num_list();
+            result->primary = C_primary();
+            result->primary_list = C_primary_list();
         }
     }
 
@@ -140,8 +177,8 @@ CNumList* C_num_list(){
 
 CMul* C_mul() {
     CMul* result = new CMul();
-    result->num = C_num();
-    result->num_list = C_num_list();
+    result->primary = C_primary();
+    result->primary_list = C_primary_list();
     return result;
 }
 

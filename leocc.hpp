@@ -39,6 +39,9 @@ void tokenize(char* p);
 class CNode;
 class CExpr;
 class CMul;
+class CPrimary;
+class CPrimaryList;
+class CPunct;
 class CNum;
 class CMulList;
 class CNumList;
@@ -57,8 +60,25 @@ public:
 
 class CMul : public CNode {
     public:
+    CPrimary* primary;
+    CPrimaryList* primary_list;
+    void print_cst(int depth) override;
+};
+
+class CPrimary : public CNode{
+    public:
+    CPunct* leftParenthesis;
+    CExpr* expr;
+    CPunct* rightParenthesis;
     CNum* num;
-    CNumList* num_list;
+    void print_cst(int depth) override;
+};
+
+class CPrimaryList : CNode{
+    public:
+    CPunct* times_or_divides;
+    CPrimary* primary;
+    CPrimaryList* primary_list;
     void print_cst(int depth) override;
 };
 
