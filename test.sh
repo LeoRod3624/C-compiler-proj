@@ -31,6 +31,11 @@ assert 8 '4*2'
 assert 4 '8/2'
 assert 30 '((((5+5)+(8/2)/(2)*(10))))'
 
+assert 10 '+10'
+ assert 10 '-10+20'
+ assert 10 '- -10'
+ assert 10 '- - +10'
+
 #vvvvNext goalvvvv
 # assert 47 '41+6'
 

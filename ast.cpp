@@ -1,14 +1,37 @@
 #include "leocc.hpp"
 #include <cassert>
-
-// Current CFG, with regex:
-// expr = mul ("+" mul | "-" mul)*
-// mul = primary ("*" primary | "/" primary)*
-// primary = "(" expr ")" | num
+// expr = mul ("+" mul | "-" mul)*      
+// mul = unary ("*" unary | "/" unary)* 
+// unary = ("+" | "-") unary | primary  
+// primary = "(" expr ")" | num         
 NodeExpr* expr();
 NodeExpr* primary();
 NodeExpr* mul();
 NodeNum* num();
+NodeExpr* unary();
+NodeExpr* unary(){
+    if( tokens[tokens_i]->kind == TK_PUNCT &&
+        (tokens[tokens_i]->punct == "+" || tokens[tokens_i]->punct == "-")){
+        if(tokens[tokens_i]->punct == "+"){
+            tokens_i++;
+            return unary();
+        }
+        else{
+            assert(tokens[tokens_i]->punct == "-");
+            tokens_i++;
+            
+            NodeMul* result = new NodeMul();
+            NodeNum* minus_one = new NodeNum();
+            minus_one->num_literal = -1;
+            result->lhs = minus_one;
+            result->rhs = unary();
+            return result;
+            
+            
+        }
+    }
+    return primary();
+}
 
 NodeNum* num() {
     assert(tokens[tokens_i]->kind == TK_NUM && "NOT A NUMBER, MUST BE A NUMBER");
@@ -34,16 +57,16 @@ NodeExpr* primary() {
         exit(1);
     }
 }
-
+// mul = unary ("*" unary | "/" unary)*     //CHANGED
 NodeExpr* mul() {
-    NodeExpr* result = primary();
+    NodeExpr* result = unary();
 
     while(tokens[tokens_i]->kind == TK_PUNCT && (tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "/")){
         if(tokens[tokens_i]->punct == "*"){
             NodeMul* current_mul = new NodeMul();
             current_mul->lhs = result;
             current_mul->punct = tokens[tokens_i++]->punct;
-            current_mul->rhs = primary();
+            current_mul->rhs = unary();
             result = current_mul;
         }
         else{
@@ -51,7 +74,7 @@ NodeExpr* mul() {
             NodeDiv* current_div = new NodeDiv();
             current_div->lhs = result;
             current_div->punct = tokens[tokens_i++]->punct;
-            current_div->rhs = primary();
+            current_div->rhs = unary();
             result = current_div;
         }
     }
