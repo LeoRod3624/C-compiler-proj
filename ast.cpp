@@ -1,51 +1,6 @@
 #include "leocc.hpp"
 #include <cassert>
-// Current CFG, with regex:
-// expr = mul ("+" mul | "-" mul)*
-// mul = primary ("*" primary | "/" primary)*
-// primary = "(" expr ")" | num
-//   |
-// "1"
-// -> expr 
-// -> mul ("+" mul | "-" mul)* 
-// -> primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("+" mul | "-" mul)* 
-// -> 1 
-//     |
-// "1+2"
-// -> expr 
-// -> mul ("+" mul | "-" mul)* 
-// -> primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("+" mul | "-" mul)* 
-// -> 1 "+" mul ("+" mul | "-" mul)* 
-// -> 1 "+" primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 ("+" mul | "-" mul)* 
-// -> 1 "+" 2
-//       |
-// "1+2+3"
-// -> expr 
-// -> mul ("+" mul | "-" mul)* 
-// -> primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("+" mul | "-" mul)* 
-// -> 1 "+" mul ("+" mul | "-" mul)* 
-// -> 1 "+" primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" mul ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" 3 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" 3 ("+" mul | "-" mul)* 
-// -> 1 "+" 2 "+" 3
+
 // Current CFG, with regex:
 // expr = mul ("+" mul | "-" mul)*
 // mul = primary ("*" primary | "/" primary)*
@@ -54,14 +9,6 @@ NodeExpr* expr();
 NodeExpr* primary();
 NodeExpr* mul();
 NodeNum* num();
-// "1"
-// -> expr 
-// -> mul ("+" mul | "-" mul)* 
-// -> primary ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> num ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("*" primary | "/" primary)* ("+" mul | "-" mul)* 
-// -> 1 ("+" mul | "-" mul)* 
-// -> 1 
 
 NodeNum* num() {
     assert(tokens[tokens_i]->kind == TK_NUM && "NOT A NUMBER, MUST BE A NUMBER");
@@ -69,7 +16,7 @@ NodeNum* num() {
     result->num_literal = tokens[tokens_i++]->num;
     return result;
 }
-// primary = "(" expr ")" | num
+
 NodeExpr* primary() {
     if(tokens[tokens_i]->kind == TK_NUM){
         return num();
@@ -86,23 +33,53 @@ NodeExpr* primary() {
         cout << "entered primary function call but didn't choose any rule." << endl;
         exit(1);
     }
-    //still need to implement the other rule 
-    // "(" expr ")"
 }
 
-// mul = primary ("*" primary | "/" primary)*
 NodeExpr* mul() {
-    return primary();
-    // still need to implement 
-    // ("*" primary | "/" primary)*
-    // part of the rule
+    NodeExpr* result = primary();
+
+    while(tokens[tokens_i]->kind == TK_PUNCT && (tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "/")){
+        if(tokens[tokens_i]->punct == "*"){
+            NodeMul* current_mul = new NodeMul();
+            current_mul->lhs = result;
+            current_mul->punct = tokens[tokens_i++]->punct;
+            current_mul->rhs = primary();
+            result = current_mul;
+        }
+        else{
+            assert(tokens[tokens_i]->punct == "/");
+            NodeDiv* current_div = new NodeDiv();
+            current_div->lhs = result;
+            current_div->punct = tokens[tokens_i++]->punct;
+            current_div->rhs = primary();
+            result = current_div;
+        }
+    }
+    return result;
 }
-// expr = mul ("+" mul | "-" mul)*
 NodeExpr* expr() {
-    return mul();
-    // still need to implement 
-    // ("+" mul | "-" mul)* 
-    // part of the rule
+    NodeExpr* result = mul();
+
+    while(tokens[tokens_i]->kind == TK_PUNCT && (tokens[tokens_i]->punct == "+" || tokens[tokens_i]->punct == "-")){
+        if(tokens[tokens_i]->punct == "+"){
+            NodeAdd* current_add = new NodeAdd();
+            current_add->lhs = result;
+            current_add->punct = tokens[tokens_i++]->punct;
+            current_add->rhs = mul();
+            result = current_add;
+        }
+        else{
+            assert(tokens[tokens_i]->punct == "-");
+            NodeSub* current_sub = new NodeSub();
+            current_sub->lhs = result;
+            current_sub->punct = tokens[tokens_i++]->punct;
+            current_sub->rhs = mul();
+            result = current_sub;
+            //call Sub?
+            ;
+        }
+    }
+    return result;
 }
 
 Node* abstract_parse() {

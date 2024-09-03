@@ -120,9 +120,12 @@ public:
     virtual void codegen() = 0;
 };
 class NodeExpr : public Node {
+public:
     virtual void codegen() = 0;
 };
 class NodeBinOp : public NodeExpr {
+public:
+    string punct;
     NodeExpr* lhs;
     NodeExpr* rhs;
     virtual void codegen() = 0;
