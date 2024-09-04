@@ -100,9 +100,20 @@ void NodeNE::codegen(){
     cout << "  and x0, x0, #0x1" << endl;
     
 }
-void do_codegen(Node* _expr) {
+
+void NodeProgram::codegen(){
+    for(NodeStmt* stmt : stmts) {
+        stmt->codegen();
+    }
+}
+
+void NodeExprStmt::codegen(){
+    _expr->codegen();
+}
+
+void do_codegen(Node* root) {
     cout << ".global main" << endl;
     cout << "main:" << endl;
 
-    _expr->codegen();
+    root->codegen();
 }

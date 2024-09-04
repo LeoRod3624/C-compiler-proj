@@ -51,6 +51,7 @@ class CNode {
     virtual void print_cst(int depth) = 0;
 };
 
+
 class CExpr : public CNode {
 public:
     CMul* mul = nullptr;
@@ -119,10 +120,28 @@ class Node {
 public:
     virtual void codegen() = 0;
 };
+class NodeStmt : public Node {
+public:
+    virtual void codegen() = 0;
+};
+class NodeProgram : public Node {
+    public:
+    vector<NodeStmt*> stmts;
+    void codegen();
+};
+
 class NodeExpr : public Node {
 public:
     virtual void codegen() = 0;
 };
+
+class NodeExprStmt : public NodeStmt {
+public:
+    NodeExpr* _expr;
+    void codegen();
+
+};
+
 class NodeBinOp : public NodeExpr {
 public:
     string punct;

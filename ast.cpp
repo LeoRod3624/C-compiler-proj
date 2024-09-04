@@ -1,7 +1,10 @@
 #include "leocc.hpp"
 #include <cassert>  
-/* 
+/*
 Current CFG, with regex:
+program = stmt*
+stmt = expr-stmt
+expr-stmt = expr ";"
 expr = equality
 equality = relational ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -10,6 +13,9 @@ mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-") unary | primary
 primary = "(" expr ")" | num
 */
+NodeProgram* program();
+NodeStmt* stmt();
+NodeExprStmt* expr_stmt();
 NodeExpr* expr();
 NodeExpr* primary();
 NodeExpr* mul();
@@ -18,6 +24,28 @@ NodeExpr* unary();
 NodeExpr* equality();
 NodeExpr* relational();
 NodeExpr* add();
+
+NodeProgram* program() {
+    NodeProgram* Node_Program = new NodeProgram();
+    while(tokens[tokens_i]->kind != TK_EOF){
+        Node_Program->stmts.push_back(stmt());
+    }
+    return Node_Program;
+}
+
+NodeStmt* stmt() {
+    NodeStmt* result = expr_stmt();
+    return result;
+}
+    
+NodeExprStmt* expr_stmt() {
+    NodeExprStmt* result = new NodeExprStmt();
+    result->_expr = expr();
+    assert(tokens[tokens_i]->kind == TK_PUNCT && "Should be a ';'");
+    assert(tokens[tokens_i]->punct == ";" && "Should be a ';'");
+    tokens_i++;
+    return result;
+}
 
 NodeExpr* expr(){
     return equality();
@@ -130,7 +158,7 @@ NodeExpr* primary() {
         exit(1);
     }
 }
-// mul = unary ("*" unary | "/" unary)*     //CHANGED
+
 NodeExpr* mul() {
     NodeExpr* result = unary();
 
@@ -153,6 +181,7 @@ NodeExpr* mul() {
     }
     return result;
 }
+
 NodeExpr* add() {
     NodeExpr* result = mul();
 
@@ -178,6 +207,7 @@ NodeExpr* add() {
     return result;
 }
 
+// kicks off ast generation with start symbol
 Node* abstract_parse() {
-    return expr();
+    return program();
 }

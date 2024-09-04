@@ -80,6 +80,12 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p += 1;
         }
+        else if(*p == ';'){
+            string s = "";
+            s.push_back(*p);
+            tokens.push_back(new Token(TK_PUNCT, s));
+            p+=1;
+        }
         else {
             assert(false && "shouldn't reach here");
         }
