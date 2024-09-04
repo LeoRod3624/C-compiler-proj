@@ -130,6 +130,36 @@ public:
     NodeExpr* rhs;
     virtual void codegen() = 0;
 };
+class NodeLT : public NodeBinOp{
+    public:
+    void codegen();
+};
+
+class NodeGT : public NodeBinOp{
+    public:
+    void codegen();
+};
+
+class NodeLTE : public NodeBinOp{
+    public:
+    void codegen();
+};
+
+class NodeGTE : public NodeBinOp{
+    public:
+    void codegen();
+};
+
+class NodeEE : public NodeBinOp{
+    public:
+    void codegen();
+};
+    
+class NodeNE : public NodeBinOp{
+    public:
+    void codegen();
+};
+
 class NodeAdd : public NodeBinOp {
 public:
     void codegen();

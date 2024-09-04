@@ -66,6 +66,20 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p++;
         }
+        else if(((*p == '<') || (*p == '>') || (*p == '!') || (*p == '=')) 
+                 && (*(p+1) == '=') ){
+            string s = "";
+            s.push_back(*p);
+            s.push_back(*(p+1));
+            tokens.push_back(new Token(TK_PUNCT, s));
+            p+=2;
+        }
+        else if((*p == '<') || (*p == '>')) {
+            string s = "";
+            s.push_back(*p);
+            tokens.push_back(new Token(TK_PUNCT, s));
+            p += 1;
+        }
         else {
             assert(false && "shouldn't reach here");
         }
