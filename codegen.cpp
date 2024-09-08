@@ -111,9 +111,45 @@ void NodeExprStmt::codegen(){
     _expr->codegen();
 }
 
+void NodeAssign::codegen(){
+    rhs->codegen();
+    cout << "  str x0, [sp, -16]!" << endl;
+    (lhs)->codegen();
+    cout << "  ldr x1, [sp], 16" << endl;
+    cout << "  str x1, [x0]" << endl;
+    cout << "  mov x0, x1" << endl;
+}
+
+void NodeId::codegen() {
+    
+    if(parent && parent->is_NodeAssign()){
+        int byte_number = (id[0]-97)+1;
+        cout << "  add x0, fp, -" << byte_number*8 << endl;
+    }
+    else{
+        int byte_number = (id[0]-97)+1;
+        cout << "  add x0, fp, -" << byte_number*8 << endl;
+        cout << "  ldr x0, [x0]" << endl;
+    }
+}
+
+static void emit_prologue() {
+    cout << "  stp x29, x30, [sp, -16]!" << endl;
+    cout << "  mov x29, sp" << endl;
+    cout << "  sub sp, sp, #208" << endl;
+}
+
+static void emit_epilogue() {
+    cout << "  add sp, sp, #208" << endl;
+    cout << "  ldp x29, x30, [sp], 16" << endl;
+    cout << "  ret" << endl;
+}
+
 void do_codegen(Node* root) {
     cout << ".global main" << endl;
     cout << "main:" << endl;
-
+    
+    emit_prologue();
     root->codegen();
+    emit_epilogue();
 }

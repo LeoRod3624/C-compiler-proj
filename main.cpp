@@ -43,7 +43,6 @@ int main(int argc, char* argv[]){
     
     do_codegen(abstract_tree);
 
-    cout << "ret" << endl;
 
     return 0;
 }

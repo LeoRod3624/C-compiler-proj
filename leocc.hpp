@@ -8,6 +8,7 @@ class Token;
 enum TokenKind {
     TK_NUM = 0,
     TK_PUNCT,
+    TK_ID,
     TK_EOF
 };
 
@@ -23,7 +24,8 @@ public:
 
     // if TK_PUNCT
     string punct;
-
+    // if TK_ID
+    string id;
     // if TK_NUM
     int num;
 };
@@ -119,6 +121,9 @@ CNode* concrete_parse();
 class Node {
 public:
     virtual void codegen() = 0;
+    virtual bool is_NodeId(); 
+    virtual bool is_NodeAssign();
+    Node* parent;
 };
 class NodeStmt : public Node {
 public:
@@ -127,12 +132,20 @@ public:
 class NodeProgram : public Node {
     public:
     vector<NodeStmt*> stmts;
+    NodeProgram(vector<NodeStmt*> vec);
     void codegen();
 };
 
 class NodeExpr : public Node {
 public:
     virtual void codegen() = 0;
+};
+
+class NodeId : public NodeExpr {
+    public:
+    string id;
+    void codegen();
+    bool is_NodeId() override;
 };
 
 class NodeExprStmt : public NodeStmt {
@@ -149,6 +162,14 @@ public:
     NodeExpr* rhs;
     virtual void codegen() = 0;
 };
+
+class NodeAssign : public NodeBinOp {
+    public:
+    void codegen();
+    NodeAssign(NodeExpr* lhs, NodeExpr* rhs);
+    bool is_NodeAssign() override;
+};
+
 class NodeLT : public NodeBinOp{
     public:
     void codegen();

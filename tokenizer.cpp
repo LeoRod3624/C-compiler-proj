@@ -4,19 +4,24 @@
 vector<Token*> tokens;
 Token* current_tok = nullptr;
 int tokens_i = 0;
-
 Token::Token(TokenKind kind, long val) 
 : kind(kind), num(val) {
 
 };
 Token::Token(TokenKind kind, string p) 
-: kind(kind), punct(p) {
-
+: kind(kind) {
+    if(kind == TK_PUNCT) {
+        punct = p;
+    }
+    else if(kind == TK_ID) {
+        id = p;
+    }
 };
 Token::Token(TokenKind kind) 
 : kind(kind) {
 
 }
+
 
 void Token::print() {
     if(kind == TK_NUM) {
@@ -27,6 +32,11 @@ void Token::print() {
     else if(kind == TK_PUNCT) {
         cout << "<";
         cout << "TK_PUNCT: " << punct;
+        cout << ">" << endl;
+    }
+    else if(kind == TK_ID) {
+        cout << "<";
+        cout << "TK_ID: " << id;
         cout << ">" << endl;
     }
     else if(kind == TK_EOF) {
@@ -86,10 +96,23 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p+=1;
         }
+        else if(*p == '='){
+            string s = "";
+            s.push_back(*p);
+            tokens.push_back(new Token(TK_PUNCT, s));
+            p+=1;
+        }
+        // "hardcode" 26 variables into the environment, one for each letter
+        else if(isalpha(*p)){
+            assert(('a' <= *p) && (*p <= 'z') && "only lowercase letter variables for now");
+            string s = "";
+            s.push_back(*p);
+            tokens.push_back(new Token(TK_ID, s));
+            p+=1;
+        }
         else {
             assert(false && "shouldn't reach here");
         }
     }
-
     tokens.push_back(new Token(TK_EOF));
 }

@@ -1,21 +1,25 @@
 #include "leocc.hpp"
 #include <cassert>  
 /*
-Current CFG, with regex:
 program = stmt*
 stmt = expr-stmt
 expr-stmt = expr ";"
-expr = equality
+expr = assign
+assign = equality ("=" assign)?
 equality = relational ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-") unary | primary
-primary = "(" expr ")" | num
+primary = "(" expr ")" | num | id
+terminals:
+num = <any number>
+id = <any string of id>
 */
 NodeProgram* program();
 NodeStmt* stmt();
 NodeExprStmt* expr_stmt();
+NodeExpr* assign();
 NodeExpr* expr();
 NodeExpr* primary();
 NodeExpr* mul();
@@ -25,11 +29,27 @@ NodeExpr* equality();
 NodeExpr* relational();
 NodeExpr* add();
 
+NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
+    stmts = _stmts;
+    for( NodeStmt* s:stmts){
+        s->parent = this;
+    }   
+}
+
+NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs){
+    lhs = _lhs;
+    rhs = _rhs;
+    punct = "=";
+    lhs->parent = this;
+    rhs->parent = this;
+}
+
 NodeProgram* program() {
-    NodeProgram* Node_Program = new NodeProgram();
+    vector<NodeStmt*> stmts;
     while(tokens[tokens_i]->kind != TK_EOF){
-        Node_Program->stmts.push_back(stmt());
+        stmts.push_back(stmt());
     }
+    NodeProgram* Node_Program = new NodeProgram(stmts);
     return Node_Program;
 }
 
@@ -48,7 +68,18 @@ NodeExprStmt* expr_stmt() {
 }
 
 NodeExpr* expr(){
-    return equality();
+    return assign();
+}
+
+NodeExpr* assign(){
+    NodeExpr* result = equality();
+    if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "="){
+        tokens_i++;
+        NodeAssign* _assign = new NodeAssign(result, assign());
+        assert(_assign->lhs->is_NodeId() && "TYPECHECK: lhs of NodeAssign must be a NodeId");
+        result = _assign;
+    }
+    return result;
 }
 
 NodeExpr* equality(){
@@ -141,9 +172,19 @@ NodeNum* num() {
     return result;
 }
 
+NodeId* id(){
+    assert(tokens[tokens_i]->kind == TK_ID && "token was not an ID when it should have been");
+    NodeId* result = new NodeId();
+    result->id = tokens[tokens_i++]->id;
+    return result;
+
+}
 NodeExpr* primary() {
     if(tokens[tokens_i]->kind == TK_NUM){
         return num();
+    }
+    else if(tokens[tokens_i]->kind == TK_ID){
+        return id();
     }
     else if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "("){
         tokens_i++;
@@ -210,4 +251,20 @@ NodeExpr* add() {
 // kicks off ast generation with start symbol
 Node* abstract_parse() {
     return program();
+}
+
+bool Node::is_NodeId() {
+    return false;
+}
+
+bool NodeId::is_NodeId() {
+    return true;
+}
+
+bool Node::is_NodeAssign(){
+    return false;
+}
+
+bool NodeAssign::is_NodeAssign(){
+    return true;
 }

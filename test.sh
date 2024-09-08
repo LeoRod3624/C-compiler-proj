@@ -60,4 +60,9 @@ assert 0 '42!=42;'
 assert 1 '(42!=42) < (42==42);'
 assert 3 '1; 2; 3;'
 
+#hardcode 26 variables on the stack for letters a-z
+assert 3 'a=3; a;'
+assert 8 'a=3; z=5; a+z;'
+assert 6 'a=b=3; a+b;'
+
 echo OK
