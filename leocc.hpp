@@ -10,12 +10,19 @@ enum TokenKind {
     TK_NUM = 0,
     TK_PUNCT,
     TK_ID,
+    TK_KW,
     TK_EOF
+};
+
+enum KeywordKind {
+    KW_NONE,
+    KW_RET
 };
 
 class Token {
 public:
     TokenKind kind;
+    KeywordKind kw_kind = KW_NONE;
 
     Token(TokenKind kind, long val);
     Token(TokenKind kind, string p);
@@ -143,18 +150,19 @@ class NodeProgram : public Node {
     public:
     vector<NodeStmt*> stmts;
     NodeProgram(vector<NodeStmt*> vec);
-    void codegen();
+    void codegen() override;
 };
 
 class NodeExpr : public Node {
 public:
+
     virtual void codegen() = 0;
 };
 
 class NodeId : public NodeExpr {
     public:
     string id;
-    void codegen();
+    void codegen() override;
     bool is_NodeId() override;
     NodeId(string);
 };
@@ -162,8 +170,15 @@ class NodeId : public NodeExpr {
 class NodeExprStmt : public NodeStmt {
 public:
     NodeExpr* _expr;
-    void codegen();
+    void codegen() override;
 
+};
+
+class NodeReturnStmt : public NodeStmt {
+    public:
+    NodeExpr* _expr;
+    NodeReturnStmt(NodeExpr* e);
+    void codegen() override;
 };
 
 class NodeBinOp : public NodeExpr {
@@ -176,61 +191,61 @@ public:
 
 class NodeAssign : public NodeBinOp {
     public:
-    void codegen();
+    void codegen() override;
     NodeAssign(NodeExpr* lhs, NodeExpr* rhs);
     bool is_NodeAssign() override;
 };
 
 class NodeLT : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
 
 class NodeGT : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
 
 class NodeLTE : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
 
 class NodeGTE : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
 
 class NodeEE : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
     
 class NodeNE : public NodeBinOp{
     public:
-    void codegen();
+    void codegen() override;
 };
 
 class NodeAdd : public NodeBinOp {
 public:
-    void codegen();
+    void codegen() override;
 };
 class NodeSub : public NodeBinOp {
 public:
-    void codegen();
+    void codegen() override;
 };
 class NodeMul : public NodeBinOp {
 public:
-    void codegen();
+    void codegen() override;
 };
 class NodeDiv : public NodeBinOp {
 public:
-    void codegen();
+    void codegen() override;
 };
 class NodeNum : public NodeExpr {
     public:
     int num_literal;
-    void codegen();
+    void codegen() override;
 };
 Node* abstract_parse();
 

@@ -4,17 +4,21 @@
 vector<Token*> tokens;
 Token* current_tok = nullptr;
 int tokens_i = 0;
-Token::Token(TokenKind kind, long val) 
-: kind(kind), num(val) {
+Token::Token(TokenKind k, long val) 
+: kind(k), num(val) {
 
 };
-Token::Token(TokenKind kind, string p) 
-: kind(kind) {
+Token::Token(TokenKind k, string p) 
+: kind(k) {
     if(kind == TK_PUNCT) {
         punct = p;
     }
     else if(kind == TK_ID) {
         id = p;
+        if(id == "return") {
+            kind = TK_KW;
+            kw_kind = KW_RET;
+        }
     }
 };
 Token::Token(TokenKind kind) 
@@ -38,6 +42,11 @@ void Token::print() {
         cout << "<";
         cout << "TK_ID: " << id;
         cout << ">" << endl;
+    }
+    else if(kind == TK_KW) {
+        cout << "<";
+        cout << "TK_KW: " << id;
+        cout << "> return" << endl;
     }
     else if(kind == TK_EOF) {
         cout << "<";
@@ -109,7 +118,7 @@ void tokenize(char* p) {
                 s.push_back(*p);
                 p++;
             }
-            tokens.push_back(new Token(TK_ID, s));
+            tokens.push_back(new Token(TK_ID, s)); // Token constructor corrects TK_ID if it's a keyword
         }
         else {
             assert(false && "shouldn't reach here");

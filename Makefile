@@ -1,5 +1,6 @@
 CC=clang++
-CFLAGS=-std=c++11 -g -fno-common
+WARNINGS='-Werror'
+CFLAGS=-std=c++11 -g -fno-common $(WARNINGS)
 leocc: main.cpp leocc.hpp cst.cpp ast.cpp codegen.cpp
 	$(CC) -o leocc *.cpp $(CFLAGS)
 

@@ -120,6 +120,13 @@ void NodeAssign::codegen(){
     cout << "  mov x0, x1" << endl;
 }
 
+int round16(int n){
+    if((n % 16) != 0){
+        return (16-(n%16)) + n;
+    }
+    return n;
+}
+
 void NodeId::codegen() {
     
     if(parent && parent->is_NodeAssign()){
@@ -133,14 +140,21 @@ void NodeId::codegen() {
     }
 }
 
+void NodeReturnStmt::codegen() {
+    _expr->codegen();
+    cout << "  b .L.return" << endl;
+}
+
 static void emit_prologue() {
     cout << "  stp x29, x30, [sp, -16]!" << endl;
     cout << "  mov x29, sp" << endl;
-    cout << "  sub sp, sp, #" << var_map.size()*8 << endl;
+    int stackSize = round16(var_map.size()*8);
+    cout << "  sub sp, sp, #" << stackSize << endl;
 }
 
 static void emit_epilogue() {
-    cout << "  add sp, sp, #" << var_map.size()*8 << endl;
+    cout << ".L.return:" << endl;
+    cout << "  add sp, sp, #" << round16(var_map.size()*8) << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  ret" << endl;
 }

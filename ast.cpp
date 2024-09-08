@@ -3,7 +3,8 @@
 #include <map>
 /*
 program = stmt*
-stmt = expr-stmt
+stmt = "return" expr ";"
+     | expr-stmt
 expr-stmt = expr ";"
 expr = assign
 assign = equality ("=" assign)?
@@ -61,6 +62,11 @@ NodeId::NodeId(string _id){
     }
 }
 
+NodeReturnStmt::NodeReturnStmt(NodeExpr* e) { 
+    _expr = e;
+    _expr->parent = this;
+}
+
 NodeProgram* program() {
     vector<NodeStmt*> stmts;
     while(tokens[tokens_i]->kind != TK_EOF){
@@ -71,8 +77,17 @@ NodeProgram* program() {
 }
 
 NodeStmt* stmt() {
-    NodeStmt* result = expr_stmt();
-    return result;
+    if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_RET){
+        tokens_i++;
+        NodeReturnStmt* result = new NodeReturnStmt(expr());
+        assert((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" )&& "ERROR:Must be a ';'");
+        tokens_i++;
+        return result;
+    }
+    else {
+        NodeStmt* result = expr_stmt();
+        return result;
+    }
 }
     
 NodeExprStmt* expr_stmt() {
