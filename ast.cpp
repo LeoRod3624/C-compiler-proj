@@ -1,5 +1,6 @@
 #include "leocc.hpp"
 #include <cassert>  
+#include <map>
 /*
 program = stmt*
 stmt = expr-stmt
@@ -16,6 +17,10 @@ terminals:
 num = <any number>
 id = <any string of id>
 */
+
+map<string, object*> var_map;
+int object::counter = 0;
+
 NodeProgram* program();
 NodeStmt* stmt();
 NodeExprStmt* expr_stmt();
@@ -28,6 +33,10 @@ NodeExpr* unary();
 NodeExpr* equality();
 NodeExpr* relational();
 NodeExpr* add();
+
+object::object(){
+    offSet=++counter*8;
+}
 
 NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
     stmts = _stmts;
@@ -42,6 +51,14 @@ NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs){
     punct = "=";
     lhs->parent = this;
     rhs->parent = this;
+}
+
+NodeId::NodeId(string _id){
+    id = _id;
+    if(var_map.find(id) == var_map.end()){
+        object* obj = new object();
+        var_map[id] = obj; 
+    }
 }
 
 NodeProgram* program() {
@@ -174,8 +191,7 @@ NodeNum* num() {
 
 NodeId* id(){
     assert(tokens[tokens_i]->kind == TK_ID && "token was not an ID when it should have been");
-    NodeId* result = new NodeId();
-    result->id = tokens[tokens_i++]->id;
+    NodeId* result = new NodeId(tokens[tokens_i++]->id);
     return result;
 
 }
@@ -250,6 +266,7 @@ NodeExpr* add() {
 
 // kicks off ast generation with start symbol
 Node* abstract_parse() {
+    object::counter=0;
     return program();
 }
 

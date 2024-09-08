@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <map>
 
 using namespace std;
 //START TOKENIZER
@@ -118,6 +119,15 @@ CNode* concrete_parse();
 //END CONCRETE SYNTAX TREE
 
 //START ABSTRACT SYNTAX TREE
+
+class object{
+    public:
+    static int counter;
+    int offSet;
+    object();
+};
+extern map<string, object*> var_map;
+
 class Node {
 public:
     virtual void codegen() = 0;
@@ -146,6 +156,7 @@ class NodeId : public NodeExpr {
     string id;
     void codegen();
     bool is_NodeId() override;
+    NodeId(string);
 };
 
 class NodeExprStmt : public NodeStmt {

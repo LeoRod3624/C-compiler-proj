@@ -65,4 +65,9 @@ assert 3 'a=3; a;'
 assert 8 'a=3; z=5; a+z;'
 assert 6 'a=b=3; a+b;'
 
+assert 3 'foo=3; far=4; foo;' # this would fail if we only allowed single letter variables, since they start with the same letter
+assert 8 'foo123=3; bar=5; foo123+bar;'
+
+assert 42 'a=1; b;c;d;e;f;g;h;i;j;k;l;m;n;o;p;q;r;s;t;u=42;v;w;x;y;z;aa;bb;cc;dd;ee;ff; u;'
+
 echo OK

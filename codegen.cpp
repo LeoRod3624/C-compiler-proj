@@ -123,12 +123,12 @@ void NodeAssign::codegen(){
 void NodeId::codegen() {
     
     if(parent && parent->is_NodeAssign()){
-        int byte_number = (id[0]-97)+1;
-        cout << "  add x0, fp, -" << byte_number*8 << endl;
+        int byte_number = var_map[id]->offSet;
+        cout << "  add x0, fp, -" << byte_number << endl;
     }
     else{
-        int byte_number = (id[0]-97)+1;
-        cout << "  add x0, fp, -" << byte_number*8 << endl;
+        int byte_number = var_map[id]->offSet;
+        cout << "  add x0, fp, -" << byte_number << endl;
         cout << "  ldr x0, [x0]" << endl;
     }
 }
@@ -136,11 +136,11 @@ void NodeId::codegen() {
 static void emit_prologue() {
     cout << "  stp x29, x30, [sp, -16]!" << endl;
     cout << "  mov x29, sp" << endl;
-    cout << "  sub sp, sp, #208" << endl;
+    cout << "  sub sp, sp, #" << var_map.size()*8 << endl;
 }
 
 static void emit_epilogue() {
-    cout << "  add sp, sp, #208" << endl;
+    cout << "  add sp, sp, #" << var_map.size()*8 << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  ret" << endl;
 }
@@ -148,7 +148,7 @@ static void emit_epilogue() {
 void do_codegen(Node* root) {
     cout << ".global main" << endl;
     cout << "main:" << endl;
-    
+
     emit_prologue();
     root->codegen();
     emit_epilogue();

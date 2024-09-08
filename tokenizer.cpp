@@ -102,13 +102,14 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p+=1;
         }
-        // "hardcode" 26 variables into the environment, one for each letter
-        else if(isalpha(*p)){
-            assert(('a' <= *p) && (*p <= 'z') && "only lowercase letter variables for now");
+        // variables start with a letter or _ and can have numbers
+        else if(isalpha(*p) || *p == '_'){
             string s = "";
-            s.push_back(*p);
+            while(isalnum(*p) || *p == '_') {
+                s.push_back(*p);
+                p++;
+            }
             tokens.push_back(new Token(TK_ID, s));
-            p+=1;
         }
         else {
             assert(false && "shouldn't reach here");
