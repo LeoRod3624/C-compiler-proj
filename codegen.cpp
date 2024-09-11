@@ -145,6 +145,12 @@ void NodeReturnStmt::codegen() {
     cout << "  b .L.return" << endl;
 }
 
+void NodeBlockStmt::codegen(){
+    for(NodeStmt* stmt : stmt_list) {
+        stmt->codegen();
+    }
+}
+
 static void emit_prologue() {
     cout << "  stp x29, x30, [sp, -16]!" << endl;
     cout << "  mov x29, sp" << endl;

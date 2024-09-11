@@ -167,6 +167,13 @@ class NodeId : public NodeExpr {
     NodeId(string);
 };
 
+class NodeBlockStmt: public NodeStmt {
+    public:
+    vector<NodeStmt*> stmt_list;
+    NodeBlockStmt(vector<NodeStmt*> s);
+    void codegen() override;
+};
+
 class NodeExprStmt : public NodeStmt {
 public:
     NodeExpr* _expr;

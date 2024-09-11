@@ -4,7 +4,9 @@
 /*
 program = stmt*
 stmt = "return" expr ";"
+     | "{" block-stmt
      | expr-stmt
+block-stmt = stmt* "}"
 expr-stmt = expr ";"
 expr = assign
 assign = equality ("=" assign)?
@@ -21,7 +23,7 @@ id = <any string of id>
 
 map<string, object*> var_map;
 int object::counter = 0;
-
+NodeBlockStmt* block_stmt();
 NodeProgram* program();
 NodeStmt* stmt();
 NodeExprStmt* expr_stmt();
@@ -37,6 +39,12 @@ NodeExpr* add();
 
 object::object(){
     offSet=++counter*8;
+}
+NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
+    stmt_list = _stmts;
+    for(NodeStmt* s:stmt_list){
+        s->parent = this;
+    }
 }
 
 NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
@@ -84,12 +92,27 @@ NodeStmt* stmt() {
         tokens_i++;
         return result;
     }
+    else if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{"){
+        tokens_i++;
+        return block_stmt();
+        
+    }
     else {
         NodeStmt* result = expr_stmt();
         return result;
     }
 }
     
+NodeBlockStmt* block_stmt(){
+    vector<NodeStmt*> stmtList;
+    while((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct != "}") ||
+          (tokens[tokens_i]->kind != TK_PUNCT)){
+        stmtList.push_back(stmt());
+    }
+    tokens_i++;;
+    return new NodeBlockStmt(stmtList);
+}
+
 NodeExprStmt* expr_stmt() {
     NodeExprStmt* result = new NodeExprStmt();
     result->_expr = expr();
