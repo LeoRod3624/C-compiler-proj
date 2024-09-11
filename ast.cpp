@@ -7,7 +7,7 @@ stmt = "return" expr ";"
      | "{" block-stmt
      | expr-stmt
 block-stmt = stmt* "}"
-expr-stmt = expr ";"
+expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
 equality = relational ("==" relational | "!=" relational)*
@@ -26,7 +26,7 @@ int object::counter = 0;
 NodeBlockStmt* block_stmt();
 NodeProgram* program();
 NodeStmt* stmt();
-NodeExprStmt* expr_stmt();
+NodeStmt* expr_stmt();
 NodeExpr* assign();
 NodeExpr* expr();
 NodeExpr* primary();
@@ -40,6 +40,11 @@ NodeExpr* add();
 object::object(){
     offSet=++counter*8;
 }
+
+NodeNullStmt::NodeNullStmt(){
+    ;
+}
+
 NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
     stmt_list = _stmts;
     for(NodeStmt* s:stmt_list){
@@ -88,7 +93,7 @@ NodeStmt* stmt() {
     if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_RET){
         tokens_i++;
         NodeReturnStmt* result = new NodeReturnStmt(expr());
-        assert((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" )&& "ERROR:Must be a ';'");
+        assert((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" ) && "ERROR:Must be a ';'");
         tokens_i++;
         return result;
     }
@@ -113,7 +118,11 @@ NodeBlockStmt* block_stmt(){
     return new NodeBlockStmt(stmtList);
 }
 
-NodeExprStmt* expr_stmt() {
+NodeStmt* expr_stmt() {
+    if((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" )){
+        tokens_i++;
+        return new NodeNullStmt();
+    }
     NodeExprStmt* result = new NodeExprStmt();
     result->_expr = expr();
     assert(tokens[tokens_i]->kind == TK_PUNCT && "Should be a ';'");

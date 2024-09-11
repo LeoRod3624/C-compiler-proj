@@ -167,6 +167,12 @@ class NodeId : public NodeExpr {
     NodeId(string);
 };
 
+class NodeNullStmt: public NodeStmt {
+    public:
+    NodeNullStmt();
+    void codegen() override;
+};
+
 class NodeBlockStmt: public NodeStmt {
     public:
     vector<NodeStmt*> stmt_list;
