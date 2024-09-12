@@ -5,6 +5,7 @@
 program = stmt*
 stmt = "return" expr ";"
      | "{" block-stmt
+     |"while" "(" expr ")" stmt
      | expr-stmt
 block-stmt = stmt* "}"
 expr-stmt = expr? ";"
@@ -40,6 +41,13 @@ NodeExpr* add();
 object::object(){
     offSet=++counter*8;
 }
+
+NodeWhileStmt::NodeWhileStmt(NodeExpr* e, NodeStmt* s){
+    _expr = e;
+    _stmt = s;
+    _expr->parent = this;
+    _stmt->parent = this;
+};
 
 NodeNullStmt::NodeNullStmt(){
     ;
@@ -101,6 +109,19 @@ NodeStmt* stmt() {
         tokens_i++;
         return block_stmt();
         
+    }
+    else if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_WHILE){
+        tokens_i++;
+        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
+        assert(tokens[tokens_i]->punct == "(" && "MUST BE OPEN PARENTHESIS");
+        tokens_i++;
+        NodeExpr* _expr = expr();
+        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
+        assert(tokens[tokens_i]->punct == ")" && "MUST BE CLOSING PARENTHESIS");
+        tokens_i++;
+        NodeStmt* _stmt = stmt();
+        return new NodeWhileStmt(_expr, _stmt);
+
     }
     else {
         NodeStmt* result = expr_stmt();

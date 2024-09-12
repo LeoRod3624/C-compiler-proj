@@ -77,4 +77,8 @@ assert 3 '{{1;} {2;} {return 3;}}'
 
 assert 5 '{ ;;; return 5; }'
 
+
+assert 10 '{ i=0; while(i<10) { i=i+1; } return i; }'
+
+
 echo OK
