@@ -81,7 +81,7 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p++;
         }
-        else if((*p == '*') || (*p == '/')){
+        else if((*p == '*') || (*p == '/') || (*p == '&')){
             string s = "";
             s.push_back(*p);
             tokens.push_back(new Token(TK_PUNCT, s));

@@ -15,8 +15,8 @@ assign = equality ("=" assign)?
 equality = relational ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
-mul = unary ("*" unary | "/" unary)*
-unary = ("+" | "-") unary | primary
+mul = unary ("*" unary | "/" unary | &)*
+unary = ("+" | "-" | "*" | "&") unary | primary
 primary = "(" expr ")" | num | id
 terminals:
 num = <any number>
@@ -42,6 +42,16 @@ NodeExpr* add();
 object::object(){
     offSet=++counter*8;
 }
+
+NodeAddressOf::NodeAddressOf(NodeExpr* e){
+    _expr = e;
+    _expr->parent = this;
+}
+
+NodeDereference::NodeDereference(NodeExpr* e) {
+    _expr = e;
+    _expr->parent = this;
+};
 
 NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Init = s1;
@@ -188,7 +198,7 @@ NodeExpr* assign(){
     if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "="){
         tokens_i++;
         NodeAssign* _assign = new NodeAssign(result, assign());
-        assert(_assign->lhs->is_NodeId() && "TYPECHECK: lhs of NodeAssign must be a NodeId");
+        assert((_assign->lhs->is_NodeId() || _assign->lhs->is_NodeDereference()) && "TYPECHECK: lhs of NodeAssign must be a NodeId");
         result = _assign;
     }
     return result;
@@ -255,10 +265,18 @@ NodeExpr* relational(){
 
 NodeExpr* unary(){
     if( tokens[tokens_i]->kind == TK_PUNCT &&
-        (tokens[tokens_i]->punct == "+" || tokens[tokens_i]->punct == "-")){
+        (tokens[tokens_i]->punct == "+" || tokens[tokens_i]->punct == "-" || tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "&")){
         if(tokens[tokens_i]->punct == "+"){
             tokens_i++;
             return unary();
+        }
+        else if(tokens[tokens_i]->punct == "*"){
+            tokens_i++;
+            return new NodeDereference(unary());
+        }
+        else if(tokens[tokens_i]->punct == "&"){
+            tokens_i++;
+            return new NodeAddressOf(unary());
         }
         else{
             assert(tokens[tokens_i]->punct == "-");
@@ -359,10 +377,18 @@ NodeExpr* add() {
     return result;
 }
 
-// kicks off ast generation with start symbol
+void reverse_offsets(){
+    for(auto pair : var_map){
+        int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
+        pair.second->offSet = stackSize - pair.second->offSet + 8;
+    }   
+}
+
 Node* abstract_parse() {
     object::counter=0;
-    return program();
+    NodeProgram* _program = program();
+    reverse_offsets();
+    return _program;
 }
 
 bool Node::is_NodeId() {
@@ -375,6 +401,22 @@ bool NodeId::is_NodeId() {
 
 bool Node::is_NodeAssign(){
     return false;
+}
+
+bool Node::is_NodeAddressOf(){
+    return false;
+}
+
+bool Node::is_NodeDereference(){
+    return false;
+}
+
+bool NodeDereference::is_NodeDereference(){
+    return true;
+}
+
+bool NodeAddressOf::is_NodeAddressOf(){
+    return true;
 }
 
 bool NodeAssign::is_NodeAssign(){

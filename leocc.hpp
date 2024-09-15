@@ -142,6 +142,8 @@ public:
     virtual void codegen() = 0;
     virtual bool is_NodeId(); 
     virtual bool is_NodeAssign();
+    virtual bool is_NodeAddressOf();
+    virtual bool is_NodeDereference();
     Node* parent;
 };
 class NodeStmt : public Node {
@@ -167,6 +169,22 @@ class NodeId : public NodeExpr {
     void codegen() override;
     bool is_NodeId() override;
     NodeId(string);
+};
+
+class NodeAddressOf : public NodeExpr {
+    public:
+    NodeExpr* _expr;
+    NodeAddressOf(NodeExpr* e);
+    void codegen() override;
+    bool is_NodeAddressOf() override;
+};
+
+class NodeDereference : public NodeExpr {
+    public:
+    NodeExpr* _expr;
+    NodeDereference(NodeExpr* e);
+    void codegen() override;
+    bool is_NodeDereference() override;
 };
 
 class NodeForStmt: public NodeStmt {

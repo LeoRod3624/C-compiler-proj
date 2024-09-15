@@ -3,6 +3,17 @@
 int NodeWhileStmt::counter = 0;
 int NodeForStmt::counter = 0;
 
+void NodeAddressOf::codegen() {
+    _expr->codegen();
+}
+
+void NodeDereference::codegen() {
+    _expr->codegen();
+    if(!parent->is_NodeAssign()){
+        cout << "  ldr x0, [x0]" << endl;
+    }
+}
+
 void NodeNum::codegen() {
     cout << "  mov x0, " << num_literal <<  endl;
 }
@@ -130,8 +141,7 @@ int round16(int n){
 }
 
 void NodeId::codegen() {
-    
-    if(parent && parent->is_NodeAssign()){
+    if(parent && (parent->is_NodeAssign() || parent->is_NodeAddressOf())){
         int byte_number = var_map[id]->offSet;
         cout << "  add x0, fp, -" << byte_number << endl;
     }
