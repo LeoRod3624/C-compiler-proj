@@ -23,6 +23,10 @@ Token::Token(TokenKind k, string p)
             kind = TK_KW;
             kw_kind = KW_WHILE;
         }
+        else if(id == "for"){
+            kind = TK_KW;
+            kw_kind = KW_FOR;
+        }
     }
 };
 Token::Token(TokenKind kind) 
@@ -69,7 +73,7 @@ void tokenize(char* p) {
             long val = strtol(p, &p, 10);
             tokens.push_back(new Token(TK_NUM, val));
         }
-        else if((*p == '+') || (*p == '-')){
+        else if((*p == '+') || (*p == '-') || (*p == '&')){
             // cout << "*p is " << *p << endl;
             string s = "";
             s.push_back(*p);

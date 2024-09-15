@@ -4,7 +4,8 @@
 /*
 program = stmt*
 stmt = "return" expr ";"
-     | "{" block-stmt
+     |"{" block-stmt
+     |"for" "(" expr-stmt expr-stmt expr? ")" stmt
      |"while" "(" expr ")" stmt
      | expr-stmt
 block-stmt = stmt* "}"
@@ -41,6 +42,17 @@ NodeExpr* add();
 object::object(){
     offSet=++counter*8;
 }
+
+NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
+    Init = s1;
+    Cond = s2;
+    Increment = e;
+    Body = s;
+    Init->parent = this;
+    Cond->parent = this;
+    Increment->parent = this;
+    Body->parent = this;
+};
 
 NodeWhileStmt::NodeWhileStmt(NodeExpr* e, NodeStmt* s){
     _expr = e;
@@ -122,6 +134,21 @@ NodeStmt* stmt() {
         NodeStmt* _stmt = stmt();
         return new NodeWhileStmt(_expr, _stmt);
 
+    }
+    else if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_FOR){
+        tokens_i++;
+        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
+        assert(tokens[tokens_i]->punct == "(" && "MUST BE OPEN PARENTHESIS");
+        tokens_i++;
+        NodeStmt* s1 = expr_stmt();
+        NodeStmt* s2 = expr_stmt();
+        NodeExpr* e1 = NULL;
+        if((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct != ")") || (tokens[tokens_i]->kind != TK_PUNCT)){
+            e1 = expr();
+        }
+        tokens_i++;
+        NodeStmt* s3 = stmt();
+        return new NodeForStmt(s1, s2, e1, s3);
     }
     else {
         NodeStmt* result = expr_stmt();

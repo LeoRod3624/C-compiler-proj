@@ -1,6 +1,7 @@
 #include "leocc.hpp"
 #include <cassert>
 int NodeWhileStmt::counter = 0;
+int NodeForStmt::counter = 0;
 
 void NodeNum::codegen() {
     cout << "  mov x0, " << num_literal <<  endl;
@@ -144,6 +145,21 @@ void NodeId::codegen() {
 void NodeReturnStmt::codegen() {
     _expr->codegen();
     cout << "  b .L.return" << endl;
+}
+
+void NodeForStmt::codegen() {
+    string cond = ".L.FCOND_" + to_string(counter);
+    string after = ".L.FAFTERINC_" + to_string(counter);
+    Init->codegen();
+    cout << cond << ":" << endl;
+    Cond->codegen();
+    cout << "  cbz x0, " << after << endl;
+    Body->codegen();
+    if(Increment){
+        Increment->codegen();
+    }
+    cout << "  b " << cond << endl;
+    cout << after << ":" << endl;
 }
 
 void NodeWhileStmt::codegen() {

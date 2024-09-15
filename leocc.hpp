@@ -17,7 +17,8 @@ enum TokenKind {
 enum KeywordKind {
     KW_NONE,
     KW_RET,
-    KW_WHILE
+    KW_WHILE,
+    KW_FOR
 };
 
 class Token {
@@ -166,6 +167,17 @@ class NodeId : public NodeExpr {
     void codegen() override;
     bool is_NodeId() override;
     NodeId(string);
+};
+
+class NodeForStmt: public NodeStmt {
+    public:
+    static int counter;
+    NodeStmt* Init;
+    NodeStmt* Cond;
+    NodeExpr* Increment;
+    NodeStmt* Body;
+    void codegen() override;
+    NodeForStmt(NodeStmt* Init, NodeStmt* Cond, NodeExpr* Increment, NodeStmt* Body);
 };
 
 class NodeWhileStmt: public NodeStmt {
