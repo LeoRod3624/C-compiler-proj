@@ -224,6 +224,7 @@ class NodeExprStmt : public NodeStmt {
 public:
     NodeExpr* _expr;
     void codegen() override;
+    NodeExprStmt(NodeExpr* e);
 
 };
 
@@ -240,6 +241,7 @@ public:
     NodeExpr* lhs;
     NodeExpr* rhs;
     virtual void codegen() = 0;
+    NodeBinOp(NodeExpr* l, NodeExpr* r, string p);
 };
 
 class NodeAssign : public NodeBinOp {
@@ -252,52 +254,67 @@ class NodeAssign : public NodeBinOp {
 class NodeLT : public NodeBinOp{
     public:
     void codegen() override;
+    NodeLT(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeGT : public NodeBinOp{
     public:
     void codegen() override;
+    NodeGT(NodeExpr* lhs, NodeExpr* rhs);
+
 };
 
 class NodeLTE : public NodeBinOp{
     public:
     void codegen() override;
+    NodeLTE(NodeExpr* lhs, NodeExpr* rhs);
+
 };
 
 class NodeGTE : public NodeBinOp{
     public:
     void codegen() override;
+    NodeGTE(NodeExpr* lhs, NodeExpr* rhs);
+
 };
 
 class NodeEE : public NodeBinOp{
     public:
     void codegen() override;
+    NodeEE(NodeExpr* lhs, NodeExpr* rhs);
 };
     
 class NodeNE : public NodeBinOp{
     public:
     void codegen() override;
+    NodeNE(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeAdd : public NodeBinOp {
 public:
     void codegen() override;
+    NodeAdd(NodeExpr* lhs, NodeExpr* rhs);
+
 };
 class NodeSub : public NodeBinOp {
 public:
     void codegen() override;
+    NodeSub(NodeExpr* lhs, NodeExpr* rhs);
 };
 class NodeMul : public NodeBinOp {
 public:
     void codegen() override;
+    NodeMul(NodeExpr* lhs, NodeExpr* rhs);
 };
 class NodeDiv : public NodeBinOp {
 public:
     void codegen() override;
+    NodeDiv(NodeExpr* lhs, NodeExpr* rhs);
 };
 class NodeNum : public NodeExpr {
     public:
     int num_literal;
+    NodeNum(int n);
     void codegen() override;
 };
 Node* abstract_parse();

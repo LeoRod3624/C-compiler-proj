@@ -1,6 +1,7 @@
 #include "leocc.hpp"
 #include <cassert>  
 #include <map>
+#include <string>
 /*
 program = stmt*
 stmt = "return" expr ";"
@@ -41,6 +42,44 @@ NodeExpr* add();
 
 object::object(){
     offSet=++counter*8;
+}
+
+NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
+    lhs = l;
+    rhs = r;
+    punct = p;
+    lhs->parent = this;
+    rhs->parent = this;
+}
+NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {}
+
+NodeDiv::NodeDiv(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "/") {}
+
+NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {}
+
+NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {}
+
+NodeMul::NodeMul(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "*"){}
+
+NodeEE::NodeEE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "=="){}
+
+NodeGTE::NodeGTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">="){}
+
+NodeGT::NodeGT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">"){}
+
+NodeLTE::NodeLTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<="){}
+
+NodeLT::NodeLT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<"){}
+
+NodeNE::NodeNE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "!="){}
+
+NodeExprStmt::NodeExprStmt(NodeExpr* e){
+    _expr = e;
+    _expr->parent = this;
+};
+
+NodeNum::NodeNum(int n){
+    num_literal = n;
 }
 
 NodeAddressOf::NodeAddressOf(NodeExpr* e){
@@ -87,14 +126,6 @@ NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
     for( NodeStmt* s:stmts){
         s->parent = this;
     }   
-}
-
-NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs){
-    lhs = _lhs;
-    rhs = _rhs;
-    punct = "=";
-    lhs->parent = this;
-    rhs->parent = this;
 }
 
 NodeId::NodeId(string _id){
@@ -181,8 +212,7 @@ NodeStmt* expr_stmt() {
         tokens_i++;
         return new NodeNullStmt();
     }
-    NodeExprStmt* result = new NodeExprStmt();
-    result->_expr = expr();
+    NodeExprStmt* result = new NodeExprStmt(expr());
     assert(tokens[tokens_i]->kind == TK_PUNCT && "Should be a ';'");
     assert(tokens[tokens_i]->punct == ";" && "Should be a ';'");
     tokens_i++;
@@ -209,18 +239,12 @@ NodeExpr* equality(){
     while( tokens[tokens_i]->kind == TK_PUNCT &&
         (tokens[tokens_i]->punct == "==" || tokens[tokens_i]->punct == "!=")){
             if(tokens[tokens_i]->punct == "=="){
-                NodeEE* ee = new NodeEE();
-                ee->lhs = result;
                 tokens_i++;
-                ee->rhs = relational();
-                result = ee;
+                result = new NodeEE(result, relational());
             }
             else{
-                NodeNE* ne = new NodeNE();
-                ne->lhs = result;
                 tokens_i++;
-                ne->rhs = relational();
-                result = ne;;
+                result = new NodeNE(result,relational());
             }
     }
     return result;
@@ -231,32 +255,20 @@ NodeExpr* relational(){
     while( tokens[tokens_i]->kind == TK_PUNCT &&
         (tokens[tokens_i]->punct == "<" || tokens[tokens_i]->punct == ">" || tokens[tokens_i]->punct == ">=" || tokens[tokens_i]->punct == "<=")){
             if(tokens[tokens_i]->punct == "<"){
-                NodeLT* lt = new NodeLT();
-                lt->lhs = result;
                 tokens_i++;
-                lt->rhs = add();
-                result = lt;
+                result = new NodeLT(result, add());
             }
             else if(tokens[tokens_i]->punct == ">"){
-                NodeGT* gt = new NodeGT();
-                gt->lhs = result;
                 tokens_i++;
-                gt->rhs = add();
-                result = gt;
+                result = new NodeGT(result, add());
             }
             else if(tokens[tokens_i]->punct == "<="){
-                NodeLTE* lte = new NodeLTE();
-                lte->lhs = result;
                 tokens_i++;
-                lte->rhs = add();
-                result = lte;
+                result = new NodeLTE(result, add());
             }
             else if(tokens[tokens_i]->punct == ">="){
-                NodeGTE* gte = new NodeGTE();
-                gte->lhs = result;
                 tokens_i++;
-                gte->rhs = add();
-                result = gte;
+                result = new NodeGTE(result, add());
             }
         }
 
@@ -281,14 +293,7 @@ NodeExpr* unary(){
         else{
             assert(tokens[tokens_i]->punct == "-");
             tokens_i++;
-            
-            NodeMul* result = new NodeMul();
-            NodeNum* minus_one = new NodeNum();
-            minus_one->num_literal = -1;
-            result->lhs = minus_one;
-            result->rhs = unary();
-            return result;
-            
+            return new NodeMul(new NodeNum(-1), unary());
             
         }
     }
@@ -297,9 +302,7 @@ NodeExpr* unary(){
 
 NodeNum* num() {
     assert(tokens[tokens_i]->kind == TK_NUM && "NOT A NUMBER, MUST BE A NUMBER");
-    NodeNum* result = new NodeNum();
-    result->num_literal = tokens[tokens_i++]->num;
-    return result;
+    return new NodeNum(tokens[tokens_i++]->num);
 }
 
 NodeId* id(){
@@ -334,19 +337,13 @@ NodeExpr* mul() {
 
     while(tokens[tokens_i]->kind == TK_PUNCT && (tokens[tokens_i]->punct == "*" || tokens[tokens_i]->punct == "/")){
         if(tokens[tokens_i]->punct == "*"){
-            NodeMul* current_mul = new NodeMul();
-            current_mul->lhs = result;
-            current_mul->punct = tokens[tokens_i++]->punct;
-            current_mul->rhs = unary();
-            result = current_mul;
+            tokens_i++;
+            result = new NodeMul(result,unary());
         }
         else{
             assert(tokens[tokens_i]->punct == "/");
-            NodeDiv* current_div = new NodeDiv();
-            current_div->lhs = result;
-            current_div->punct = tokens[tokens_i++]->punct;
-            current_div->rhs = unary();
-            result = current_div;
+            tokens_i++;
+            result = new NodeDiv(result, unary());   
         }
     }
     return result;
@@ -357,21 +354,15 @@ NodeExpr* add() {
 
     while(tokens[tokens_i]->kind == TK_PUNCT && (tokens[tokens_i]->punct == "+" || tokens[tokens_i]->punct == "-")){
         if(tokens[tokens_i]->punct == "+"){
-            NodeAdd* current_add = new NodeAdd();
-            current_add->lhs = result;
-            current_add->punct = tokens[tokens_i++]->punct;
-            current_add->rhs = mul();
-            result = current_add;
+            tokens_i++;
+            result = new NodeAdd(result, mul());
+
         }
         else{
             assert(tokens[tokens_i]->punct == "-");
-            NodeSub* current_sub = new NodeSub();
-            current_sub->lhs = result;
-            current_sub->punct = tokens[tokens_i++]->punct;
-            current_sub->rhs = mul();
-            result = current_sub;
-            //call Sub?
-            ;
+            tokens_i++;
+            result = new NodeSub(result, mul());
+
         }
     }
     return result;
