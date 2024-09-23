@@ -22,16 +22,28 @@ void NodeAdd::codegen() {
     lhs->codegen();
     cout << "  str x0, [sp, -16]!" << endl;
     rhs->codegen();
+    if(c_type->isPtrType()) {
+        cout << "  mov x1, 8" << endl;
+        cout << "  mul x0, x0, x1" << endl;
+    }
     cout << "  ldr x1, [sp], 16" << endl;
     cout << "  add x0, x0, x1" << endl;
 }
-
 void NodeSub::codegen(){
     lhs->codegen();
     cout << "  str x0, [sp, -16]!" << endl;
     rhs->codegen();
+    if(lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
+        cout << "  mov x1, 8" << endl;
+        cout << "  mul x0, x0, x1" << endl;
+    }
     cout << "  ldr x1, [sp], 16" << endl;
     cout << "  sub x0, x1, x0" << endl;
+    if(lhs->c_type->isPtrType() && rhs->c_type->isPtrType()) {
+        cout << "// insert code here" << endl;
+        cout << "  mov x1, 8" << endl;
+        cout << "  sdiv x0, x0, x1" << endl;
+    }
 }
 
 void NodeMul::codegen(){
@@ -58,7 +70,6 @@ void NodeLT::codegen(){
     cout << "  subs x0, x1, x0" << endl;    
     cout << "  cset x0, lt" << endl;
     cout << "  and x0, x0, #0x1" << endl;
-    ;
 }
 
 void NodeGT::codegen(){
@@ -69,7 +80,6 @@ void NodeGT::codegen(){
     cout << "  subs x0, x1, x0" << endl;    
     cout << "  cset x0, gt" << endl;
     cout << "  and x0, x0, #0x1" << endl;
-    ;
 }
 
 void NodeLTE::codegen(){
@@ -100,7 +110,6 @@ void NodeEE::codegen(){
     cout << "  subs x0, x1, x0" << endl;    
     cout << "  cset x0, eq" << endl;
     cout << "  and x0, x0, #0x1" << endl;
-    
 }
 
 void NodeNE::codegen(){
@@ -111,7 +120,6 @@ void NodeNE::codegen(){
     cout << "  subs x0, x1, x0" << endl;    
     cout << "  cset x0, ne" << endl;
     cout << "  and x0, x0, #0x1" << endl;
-    
 }
 
 void NodeProgram::codegen(){
@@ -134,9 +142,7 @@ void NodeAssign::codegen(){
 }
 
 int round16(int n){
-    if((n % 16) != 0){
-        return (16-(n%16)) + n;
-    }
+    if((n % 16) != 0){return (16-(n%16)) + n;}
     return n;
 }
 
