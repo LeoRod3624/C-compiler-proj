@@ -128,9 +128,32 @@ CNode* concrete_parse();
 //END CONCRETE SYNTAX TREE
 
 //START ABSTRACT SYNTAX TREE
+class CType {
+public:
+    uint size; // in bytes
+
+    virtual ~CType() = 0;
+
+    virtual bool isIntType();
+    virtual bool isPtrType();
+};
+
+class CIntType : public CType {
+public:
+    bool isIntType() override;
+    CIntType();
+};
+
+class CPtrType : public CType {
+public:
+    bool isPtrType() override;
+    CType* referenced_type;
+    CPtrType(CType* r);
+};
 
 class object{
     public:
+    CType* c_type = nullptr;
     static int counter;
     int offSet;
     object();
@@ -159,7 +182,7 @@ class NodeProgram : public Node {
 
 class NodeExpr : public Node {
 public:
-
+    CType* c_type = nullptr;
     virtual void codegen() = 0;
 };
 

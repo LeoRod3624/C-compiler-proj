@@ -44,6 +44,8 @@ object::object(){
     offSet=++counter*8;
 }
 
+CType::~CType() {}
+
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
     lhs = l;
     rhs = r;
@@ -51,40 +53,88 @@ NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
     lhs->parent = this;
     rhs->parent = this;
 }
-NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {}
 
-NodeDiv::NodeDiv(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "/") {}
+NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {
+    if(lhs->is_NodeId()) {
+        lhs->c_type = rhs->c_type;
+        var_map[((NodeId*)(lhs))->id]->c_type = lhs->c_type;
+    }
+    c_type = rhs->c_type;
+}
 
-NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {}
+NodeDiv::NodeDiv(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "/") {
+    c_type = new CIntType();
+}
 
-NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {}
+NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {
+    if(rhs->c_type->isIntType() && lhs->c_type->isPtrType()) {
+        c_type = new CPtrType(new CIntType());
+    }
+    else{
+        c_type = new CIntType();
+    }
+}
 
-NodeMul::NodeMul(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "*"){}
+NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {
+    if(rhs->c_type->isIntType() && lhs->c_type->isPtrType()) {
+        c_type = new CPtrType(new CIntType());
+    }
+    else{
+        c_type = new CIntType();
+    }
+}
 
-NodeEE::NodeEE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "=="){}
+NodeMul::NodeMul(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "*"){
+    c_type = new CIntType();
+}
 
-NodeGTE::NodeGTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">="){}
+NodeEE::NodeEE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "=="){
+    c_type = new CIntType();
+}
 
-NodeGT::NodeGT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">"){}
+NodeGTE::NodeGTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">="){
+    c_type = new CIntType();
+}
 
-NodeLTE::NodeLTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<="){}
+NodeGT::NodeGT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, ">"){
+    c_type = new CIntType();
+}
 
-NodeLT::NodeLT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<"){}
+NodeLTE::NodeLTE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<="){
+    c_type = new CIntType();
+}
 
-NodeNE::NodeNE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "!="){}
+NodeLT::NodeLT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<"){
+    c_type = new CIntType();
+}
+
+NodeNE::NodeNE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "!="){
+    //c_type = new CIntType();
+}
 
 NodeExprStmt::NodeExprStmt(NodeExpr* e){
     _expr = e;
     _expr->parent = this;
 };
 
+CIntType::CIntType(){
+    size = 8;
+};
+
+CPtrType::CPtrType(CType* r){
+    referenced_type = r;
+    size = 8;
+};
+
 NodeNum::NodeNum(int n){
     num_literal = n;
+    c_type = new CIntType();
 }
 
 NodeAddressOf::NodeAddressOf(NodeExpr* e){
     _expr = e;
     _expr->parent = this;
+    c_type = new CPtrType(_expr->c_type);
 }
 
 NodeDereference::NodeDereference(NodeExpr* e) {
@@ -128,11 +178,13 @@ NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
     }   
 }
 
-NodeId::NodeId(string _id){
+NodeId::NodeId(string _id) {
     id = _id;
     if(var_map.find(id) == var_map.end()){
         object* obj = new object();
         var_map[id] = obj; 
+    } else {
+        c_type = var_map[id]->c_type;
     }
 }
 
@@ -223,7 +275,7 @@ NodeExpr* expr(){
     return assign();
 }
 
-NodeExpr* assign(){
+NodeExpr* assign(){ 
     NodeExpr* result = equality();
     if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "="){
         tokens_i++;
@@ -309,7 +361,6 @@ NodeId* id(){
     assert(tokens[tokens_i]->kind == TK_ID && "token was not an ID when it should have been");
     NodeId* result = new NodeId(tokens[tokens_i++]->id);
     return result;
-
 }
 NodeExpr* primary() {
     if(tokens[tokens_i]->kind == TK_NUM){
@@ -411,5 +462,21 @@ bool NodeAddressOf::is_NodeAddressOf(){
 }
 
 bool NodeAssign::is_NodeAssign(){
+    return true;
+}
+
+bool CType::isIntType(){
+    return false;
+}
+
+bool CIntType::isIntType(){
+    return true;
+}
+
+bool CType::isPtrType(){
+    return false;
+}
+
+bool CPtrType::isPtrType(){
     return true;
 }
