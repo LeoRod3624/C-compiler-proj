@@ -101,4 +101,6 @@ assert 5 '{ x=3; y=&x; *y=5; return x; }'
 assert 1 '{ a=1;b=2; return &b-&a; }'
 assert 5 '{ x=3; return &x+2-&x+3; }'
 
+assert 2 '{ x = 1; y = 2; z = &x; return *(1+z); }'
+
 echo OK

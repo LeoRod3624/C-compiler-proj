@@ -76,7 +76,13 @@ NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {
 }
 
 NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {
-    if(rhs->c_type->isIntType() && lhs->c_type->isPtrType()) {
+    if(lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
+        c_type = new CPtrType(new CIntType());
+    }
+    else if(lhs->c_type->isIntType() && rhs->c_type->isPtrType()){//ptr_arith is canonocolized so that the pointer
+        NodeExpr* temp = lhs;                                       // arith always follows "lhs = ptr| rhs = INT"
+        lhs = rhs;
+        rhs = temp;
         c_type = new CPtrType(new CIntType());
     }
     else{
