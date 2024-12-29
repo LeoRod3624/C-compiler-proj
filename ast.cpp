@@ -2,6 +2,26 @@
 #include <cassert>  
 #include <map>
 #include <string>
+
+
+
+// New Syntax
+// block-stmt = (declaration | stmt)* "}"
+// declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
+// declspec = "int"
+// declarator = "*"* id
+
+/*
+top down implemnt this
+*/
+
+
+//Make NodeDecl inherit directly from Node since NodeDecl arent statements, although they may seem like it,
+//we are going to be declaring varaibles via the global way. Meaning our decl will NOT be inside a function def
+//The definition of a stmt is a line ending with a ';' inside a function def
+
+
+
 /*
 program = stmt*
 stmt = "return" expr ";"
@@ -10,6 +30,9 @@ stmt = "return" expr ";"
      |"while" "(" expr ")" stmt
      | expr-stmt
 block-stmt = stmt* "}"
+
+FIX HERE
+
 expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
@@ -39,12 +62,23 @@ NodeExpr* unary();
 NodeExpr* equality();
 NodeExpr* relational();
 NodeExpr* add();
+NodeDeclList* declaration();
 
 object::object(){
     offSet=++counter*8;
 }
 
 CType::~CType() {}
+
+NodeDeclList::NodeDeclList(std::vector<NodeDecl*> decls) {
+    this->decls = decls;
+}
+
+NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
+    this->varName = name;
+    this->pointerDepth = depth;
+    this->initializer = init;
+}
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
     lhs = l;
@@ -184,14 +218,12 @@ NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
     }   
 }
 
-NodeId::NodeId(string _id) {
-    id = _id;
-    if(var_map.find(id) == var_map.end()){
-        object* obj = new object();
-        var_map[id] = obj; 
-    } else {
-        c_type = var_map[id]->c_type;
+NodeId::NodeId(std::string _id) : id(_id) {
+    if (var_map.find(id) == var_map.end()) {
+        cerr << "Error: Variable '" << id << "' used without declaration." << endl;
+        exit(1);
     }
+    c_type = var_map[id]->c_type;
 }
 
 NodeReturnStmt::NodeReturnStmt(NodeExpr* e) { 
@@ -206,6 +238,43 @@ NodeProgram* program() {
     }
     NodeProgram* Node_Program = new NodeProgram(stmts);
     return Node_Program;
+}
+
+NodeDeclList* declaration() {
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected an 'int'");
+    tokens_i++;
+
+    vector<NodeDecl*> decls;
+
+    do{
+        int pointerDepth = 0;
+        while(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*"){
+            pointerDepth++;
+            tokens_i++;
+        }
+
+        assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier");
+        string varName = tokens[tokens_i++]->id;
+
+        NodeExpr* initializer = nullptr;
+        if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "="){
+            tokens_i++;//dont count the '='
+            initializer = expr();
+        }
+
+        if(var_map.find(varName) != var_map.end()){
+            cerr << "Variable " << varName << " cannot be redeclared" << endl;
+            exit(1);
+        }
+        var_map[varName] = new object();
+
+        decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
+    }while(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" && "Expected a semicolon to close off stmt(';')");
+    tokens_i++;//skipping ';'
+
+    return new NodeDeclList(decls);
 }
 
 NodeStmt* stmt() {
@@ -249,22 +318,23 @@ NodeStmt* stmt() {
         NodeStmt* s3 = stmt();
         return new NodeForStmt(s1, s2, e1, s3);
     }
+    else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
+        return declaration(); // Correctly handle `int` as a declaration
+    }
     else {
         NodeStmt* result = expr_stmt();
         return result;
     }
 }
     
-NodeBlockStmt* block_stmt(){
-    vector<NodeStmt*> stmtList;
-    while((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct != "}") ||
-          (tokens[tokens_i]->kind != TK_PUNCT)){
-        stmtList.push_back(stmt());
+NodeBlockStmt* block_stmt() {
+    std::vector<NodeStmt*> stmtList;
+    while (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != "}") {
+        stmtList.push_back(dynamic_cast<NodeStmt*>(stmt()));
     }
-    tokens_i++;;
+    tokens_i++; // Skip '}'
     return new NodeBlockStmt(stmtList);
 }
-
 NodeStmt* expr_stmt() {
     if((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" )){
         tokens_i++;
@@ -384,7 +454,7 @@ NodeExpr* primary() {
         return _expr;
     }
     else{
-        cout << "entered primary function call but didn't choose any rule." << endl;
+        cerr << "Error: Unexpected token in primary" << endl;
         exit(1);
     }
 }

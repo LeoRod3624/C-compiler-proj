@@ -196,6 +196,20 @@ void NodeBlockStmt::codegen(){
     }
 }
 
+void NodeDecl::codegen() {
+    if(initializer) {
+        initializer->codegen();
+        int offset = var_map[varName]->offSet;
+        cout << "  str x0, [fp, -" << offset << "]" << endl;
+    }
+}
+
+void NodeDeclList::codegen() {
+    for(NodeDecl* decl : decls){
+        decl->codegen();
+    }
+}
+
 void NodeNullStmt::codegen(){
     ;
 }

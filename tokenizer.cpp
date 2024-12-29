@@ -27,6 +27,10 @@ Token::Token(TokenKind k, string p)
             kind = TK_KW;
             kw_kind = KW_FOR;
         }
+        else if(id == "int"){
+            kind = TK_KW;
+            kw_kind = KW_INT;
+        }
     }
 };
 Token::Token(TokenKind kind) 
@@ -35,33 +39,33 @@ Token::Token(TokenKind kind)
 }
 
 
-void Token::print() {
-    if(kind == TK_NUM) {
-        cout << "<";
-        cout << "TK_NUM: " << num;
-        cout << ">" << endl;
-    }
-    else if(kind == TK_PUNCT) {
-        cout << "<";
-        cout << "TK_PUNCT: " << punct;
-        cout << ">" << endl;
-    }
-    else if(kind == TK_ID) {
-        cout << "<";
-        cout << "TK_ID: " << id;
-        cout << ">" << endl;
-    }
-    else if(kind == TK_KW) {
-        cout << "<";
-        cout << "TK_KW: " << id;
-        cout << "> return" << endl;
-    }
-    else if(kind == TK_EOF) {
-        cout << "<";
-        cout << "TK_EOF " << punct;
-        cout << ">" << endl;
-    }
-}
+// void Token::print() {
+//     if(kind == TK_NUM) {
+//         cout << "<";
+//         cout << "TK_NUM: " << num;
+//         cout << ">" << endl;
+//     }
+//     else if(kind == TK_PUNCT) {
+//         cout << "<";
+//         cout << "TK_PUNCT: " << punct;
+//         cout << ">" << endl;
+//     }
+//     else if(kind == TK_ID) {
+//         cout << "<";
+//         cout << "TK_ID: " << id;
+//         cout << ">" << endl;
+//     }
+//     else if(kind == TK_KW) {
+//         cout << "<";
+//         cout << "TK_KW: " << id;
+//         cout << "> return" << endl;
+//     }
+//     else if(kind == TK_EOF) {
+//         cout << "<";
+//         cout << "TK_EOF " << punct;
+//         cout << ">" << endl;
+//     }
+// }
 
 void tokenize(char* p) {
     while(*p) {
@@ -134,9 +138,21 @@ void tokenize(char* p) {
             tokens.push_back(new Token(TK_PUNCT, s));
             p++;
         }
+        else if(*p == ','){
+            string s = "";
+            s.push_back(*p);
+            tokens.push_back(new Token(TK_PUNCT, s));
+            p++;
+        }
         else {
             assert(false && "shouldn't reach here");
         }
     }
     tokens.push_back(new Token(TK_EOF));
+
+    // Debugging: Print all tokens
+    // cout << "Tokenization Result:" << endl;
+    // for (auto token : tokens) {
+    //     token->print();
+    // }
 }
