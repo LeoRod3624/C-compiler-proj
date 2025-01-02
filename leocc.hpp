@@ -18,7 +18,8 @@ enum KeywordKind {
     KW_NONE,
     KW_RET,
     KW_WHILE,
-    KW_FOR
+    KW_FOR,
+    KW_INT
 };
 
 class Token {
@@ -48,83 +49,83 @@ void tokenize(char* p);
 //END TOKENIZER 
 
 //START CONCRETE SYNTAX TREE 
-class CNode;
-class CExpr;
-class CMul;
-class CPrimary;
-class CPrimaryList;
-class CPunct;
-class CNum;
-class CMulList;
-class CNumList;
+// class CNode;
+// class CExpr;
+// class CMul;
+// class CPrimary;
+// class CPrimaryList;
+// class CPunct;
+// class CNum;
+// class CMulList;
+// class CNumList;
 
-class CNode {
-    public:
-    virtual void print_cst(int depth) = 0;
-};
+// class CNode {
+//     public:
+//     virtual void print_cst(int depth) = 0;
+// };
 
 
-class CExpr : public CNode {
-public:
-    CMul* mul = nullptr;
-    CMulList* mul_list = nullptr;
-    void print_cst(int depth);
-};
+// class CExpr : public CNode {
+// public:
+//     CMul* mul = nullptr;
+//     CMulList* mul_list = nullptr;
+//     void print_cst(int depth);
+// };
 
-class CMul : public CNode {
-    public:
-    CPrimary* primary;
-    CPrimaryList* primary_list;
-    void print_cst(int depth) override;
-};
+// class CMul : public CNode {
+//     public:
+//     CPrimary* primary;
+//     CPrimaryList* primary_list;
+//     void print_cst(int depth) override;
+// };
 
-class CPrimary : public CNode{
-    public:
-    CPunct* leftParenthesis;
-    CExpr* expr;
-    CPunct* rightParenthesis;
-    CNum* num;
-    void print_cst(int depth) override;
-};
+// class CPrimary : public CNode{
+//     public:
+//     CPunct* leftParenthesis;
+//     CExpr* expr;
+//     CPunct* rightParenthesis;
+//     CNum* num;
+//     void print_cst(int depth) override;
+// };
 
-class CPrimaryList : CNode{
-    public:
-    CPunct* times_or_divides;
-    CPrimary* primary;
-    CPrimaryList* primary_list;
-    void print_cst(int depth) override;
-};
+// class CPrimaryList : CNode{
+//     public:
+//     CPunct* times_or_divides;
+//     CPrimary* primary;
+//     CPrimaryList* primary_list;
+//     void print_cst(int depth) override;
+// };
 
-class CPunct : public CNode {
-public:
-    string punct;
-    void print_cst(int depth) override;
-};
+// class CPunct : public CNode {
+// public:
+//     string punct;
+//     void print_cst(int depth) override;
+// };
 
-class CMulList : public CNode {
-    public:
-    CPunct* plus_or_minus = nullptr;
-    CMul* mul = nullptr;
-    CMulList* mul_list = nullptr;
-    void print_cst(int depth) override;
+// class CMulList : public CNode {
+//     public:
+//     CPunct* plus_or_minus = nullptr;
+//     CMul* mul = nullptr;
+//     CMulList* mul_list = nullptr;
+//     void print_cst(int depth) override;
 
-};
+// };
 
-class CNum : public CNode { 
-    public:
-    unsigned int num_literal;
-    void print_cst(int depth)override;
-};
+// class CNum : public CNode { 
+//     public:
+//     unsigned int num_literal;
+//     void print_cst(int depth)override;
+// };
 
-class CNumList : public CNode {
-    public:
-    CNode* times_or_divides;
-    CNum* num;
-    CNumList* num_list;
-    void print_cst(int depth) override;
-};
+// class CNumList : public CNode {
+//     public:
+//     CNode* times_or_divides;
+//     CNum* num;
+//     CNumList* num_list;
+//     void print_cst(int depth) override;
+// };
 
-CNode* concrete_parse();
+// CNode* concrete_parse();
 //END CONCRETE SYNTAX TREE
 
 //START ABSTRACT SYNTAX TREE
@@ -186,6 +187,14 @@ public:
     virtual void codegen() = 0;
 };
 
+class NodeDereference : public NodeExpr {
+public:
+    NodeExpr* _expr;
+    NodeDereference(NodeExpr* e);
+    void codegen() override;
+    bool is_NodeDereference() override;
+};
+
 class NodeId : public NodeExpr {
     public:
     string id;
@@ -202,12 +211,24 @@ class NodeAddressOf : public NodeExpr {
     bool is_NodeAddressOf() override;
 };
 
-class NodeDereference : public NodeExpr {
-    public:
-    NodeExpr* _expr;
-    NodeDereference(NodeExpr* e);
+class NodeDecl : public Node {
+public:
+    std::string varName;
+    int pointerDepth;
+    NodeExpr* initializer;
+
+    NodeDecl(std::string name, int depth, NodeExpr* init = nullptr);
+
     void codegen() override;
-    bool is_NodeDereference() override;
+};
+
+class NodeDeclList : public NodeStmt {
+public:
+    std::vector<NodeDecl*> decls;
+
+    NodeDeclList(std::vector<NodeDecl*> decls);
+
+    void codegen() override;
 };
 
 class NodeForStmt: public NodeStmt {

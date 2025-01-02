@@ -28,13 +28,13 @@ int main(int argc, char* argv[]){
     tokens_i = 0;
     current_tok = tokens[tokens_i];
     //usage: ./leocc --print-cst "program"
-    if((argc == 3) && (std::string(argv[1]) == "--print-cst")) {
-        CNode* concrete_tree = concrete_parse();
-        concrete_tree->print_cst(0);
+    // if((argc == 3) && (std::string(argv[1]) == "--print-cst")) {
+    //     CNode* concrete_tree = concrete_parse();
+    //     concrete_tree->print_cst(0);
         
-        std::cout << "exiting from --print-cst option in main\n";
-        exit(0);
-    }
+    //     std::cout << "exiting from --print-cst option in main\n";
+    //     exit(0);
+    // }
 
     tokens_i = 0;
     current_tok = tokens[tokens_i];
