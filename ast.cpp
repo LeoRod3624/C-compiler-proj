@@ -2,50 +2,33 @@
 #include <cassert>  
 #include <map>
 #include <string>
-
-
-
-// New Syntax
-// block-stmt = (declaration | stmt)* "}"
-// declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
-// declspec = "int"
-// declarator = "*"* id
-
 /*
-top down implemnt this
-*/
-
-
-//Make NodeDecl inherit directly from Node since NodeDecl arent statements, although they may seem like it,
-//we are going to be declaring varaibles via the global way. Meaning our decl will NOT be inside a function def
-//The definition of a stmt is a line ending with a ';' inside a function def
-
-
-
-/*
+// Main program structure
 program = stmt*
+block-stmt = (declaration | stmt)* "}"
 stmt = "return" expr ";"
-     |"{" block-stmt
-     |"for" "(" expr-stmt expr-stmt expr? ")" stmt
-     |"while" "(" expr ")" stmt
+     | "if" "(" expr ")" stmt ("else" stmt)?
+     | "for" "(" expr-stmt expr-stmt expr? ")" stmt
+     | "while" "(" expr ")" stmt
+     | "{" block-stmt
      | expr-stmt
-block-stmt = stmt* "}"
-
-FIX HERE
-
+declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
+declspec = "int"
+declarator = "*"* id
 expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
 equality = relational ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
-mul = unary ("*" unary | "/" unary | &)*
+mul = unary ("*" unary | "/" unary | "&")*
 unary = ("+" | "-" | "*" | "&") unary | primary
 primary = "(" expr ")" | num | id
 terminals:
 num = <any number>
 id = <any string of id>
 */
+
 
 map<string, object*> var_map;
 int object::counter = 0;
@@ -241,14 +224,14 @@ NodeProgram* program() {
 }
 
 NodeDeclList* declaration() {
-    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected an 'int'");
-    tokens_i++;
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier (e.g., 'int')");
+    tokens_i++; // Consume variable decl
 
     vector<NodeDecl*> decls;
 
-    do{
+    do {
         int pointerDepth = 0;
-        while(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*"){
+        while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*") {
             pointerDepth++;
             tokens_i++;
         }
@@ -257,84 +240,88 @@ NodeDeclList* declaration() {
         string varName = tokens[tokens_i++]->id;
 
         NodeExpr* initializer = nullptr;
-        if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "="){
-            tokens_i++;//dont count the '='
+        if (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "=") {
+            tokens_i++; // Consume '='
             initializer = expr();
         }
 
-        if(var_map.find(varName) != var_map.end()){
-            cerr << "Variable " << varName << " cannot be redeclared" << endl;
+        if (var_map.find(varName) != var_map.end()) {
+            cerr << "Error: Variable '" << varName << "' is already declared." << endl;
             exit(1);
         }
+
         var_map[varName] = new object();
 
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
-    }while(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
 
-    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" && "Expected a semicolon to close off stmt(';')");
-    tokens_i++;//skipping ';'
+    } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" && "Expected ';' at the end of the declaration");
+    tokens_i++; // Consume ';'
 
     return new NodeDeclList(decls);
 }
 
+
 NodeStmt* stmt() {
-    if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_RET){
+    if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_RET) {
         tokens_i++;
         NodeReturnStmt* result = new NodeReturnStmt(expr());
-        assert((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" ) && "ERROR:Must be a ';'");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" && "Expected ';' after return expression");
         tokens_i++;
         return result;
-    }
-    else if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{"){
+    } 
+    else if (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{") {
         tokens_i++;
         return block_stmt();
-        
-    }
-    else if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_WHILE){
+    } 
+    else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_WHILE) {
         tokens_i++;
-        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
-        assert(tokens[tokens_i]->punct == "(" && "MUST BE OPEN PARENTHESIS");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after 'while'");
         tokens_i++;
-        NodeExpr* _expr = expr();
-        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
-        assert(tokens[tokens_i]->punct == ")" && "MUST BE CLOSING PARENTHESIS");
+        NodeExpr* condition = expr();
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after while condition");
         tokens_i++;
-        NodeStmt* _stmt = stmt();
-        return new NodeWhileStmt(_expr, _stmt);
-
-    }
-    else if(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_FOR){
+        NodeStmt* body = stmt();
+        return new NodeWhileStmt(condition, body);
+    } 
+    else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_FOR) {
         tokens_i++;
-        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
-        assert(tokens[tokens_i]->punct == "(" && "MUST BE OPEN PARENTHESIS");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after 'for'");
         tokens_i++;
-        NodeStmt* s1 = expr_stmt();
-        NodeStmt* s2 = expr_stmt();
-        NodeExpr* e1 = NULL;
-        if((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct != ")") || (tokens[tokens_i]->kind != TK_PUNCT)){
-            e1 = expr();
+        NodeStmt* init = expr_stmt();
+        NodeStmt* condition = expr_stmt();
+        NodeExpr* increment = nullptr;
+        if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
+            increment = expr();
         }
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after for loop clauses");
         tokens_i++;
-        NodeStmt* s3 = stmt();
-        return new NodeForStmt(s1, s2, e1, s3);
-    }
+        NodeStmt* body = stmt();
+        return new NodeForStmt(init, condition, increment, body);
+    } 
     else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
-        return declaration(); // Correctly handle `int` as a declaration
-    }
+        return declaration();
+    } 
     else {
-        NodeStmt* result = expr_stmt();
-        return result;
+        return expr_stmt();
     }
 }
+
     
 NodeBlockStmt* block_stmt() {
     std::vector<NodeStmt*> stmtList;
     while (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != "}") {
-        stmtList.push_back(dynamic_cast<NodeStmt*>(stmt()));
+        if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
+            stmtList.push_back(dynamic_cast<NodeStmt*>(declaration())); 
+        } else {
+            stmtList.push_back(stmt());
+        }
     }
     tokens_i++; // Skip '}'
     return new NodeBlockStmt(stmtList);
 }
+
 NodeStmt* expr_stmt() {
     if((tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ";" )){
         tokens_i++;

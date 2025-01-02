@@ -22,7 +22,6 @@ assert() {
     fi
 }
 
-# Tests with updated variable declarations
 assert 10 '{ return +10; }'
 assert 10 '{ return -10 + 20; }'
 assert 10 '{ return - -10; }'
