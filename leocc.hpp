@@ -187,6 +187,13 @@ public:
     virtual void codegen() = 0;
 };
 
+class NodeFunctionCall : public NodeExpr {
+public:
+    string functionName;
+    NodeFunctionCall(const string& name);
+    void codegen() override;
+};
+
 class NodeDereference : public NodeExpr {
 public:
     NodeExpr* _expr;
@@ -214,6 +221,7 @@ class NodeAddressOf : public NodeExpr {
 class NodeDecl : public Node {
 public:
     std::string varName;
+    CType* c_type = nullptr;
     int pointerDepth;
     NodeExpr* initializer;
 

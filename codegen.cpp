@@ -210,6 +210,10 @@ void NodeDeclList::codegen() {
     }
 }
 
+void NodeFunctionCall::codegen() {
+    cout << "  bl " << functionName << endl;
+}
+
 void NodeNullStmt::codegen(){
     ;
 }
