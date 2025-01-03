@@ -1,16 +1,22 @@
 #!/bin/bash
 
-#set defaults to x86
+# Set defaults to x86
 GCC=gcc
 TMP=tmp
 RUN_LINE="./$TMP"
+TEST_FUNCTIONS=test_functions.s  # External assembly file for function definitions
 
 assert() {
     expected="$1"
     input="$2"
 
+    # Compile the input to assembly
     ./leocc "$input" > $TMP.s || exit
-    $GCC -static -o $TMP $TMP.s 
+
+    # Link with the external assembly file for function definitions
+    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
+
+    # Run the resulting executable
     $RUN_LINE
     actual="$?"
 
@@ -95,5 +101,24 @@ assert 0 '{ int x; x = 0; return x; }'
 assert 42 '{ int x; x = 42; return x; }'
 assert 5 '{ int a, b; b = 5; return b; }'
 assert 10 '{ int *p, x; x = 10; p = &x; return *p; }'
+
+#THESE WORKvvvvvvv
+assert 42 '{ return ret42(); }'
+assert 0 '{ return ret0(); }'
+assert 42 '{ int x; x = ret42(); return x; }'
+assert 0 '{ int x; x = ret0(); return x; }'
+assert 0 '{ while (ret0()) return 42; return 0; }'
+assert 42 '{ { return ret42(); } }'
+assert 0 '{ return ret0() * ret42(); }'
+assert 0 '{ return ret0() / ret42(); }'
+assert 5 '{ int a = 5, b = 1; return a * b; }'
+assert 6 '{ int a = 5, b = 1; a = 5 + 1; return a; }'
+assert 42 '{ int a = 5, b = ret42(); b = ret42() + 0; return b; }'
+assert 5 '{ int a = 5; return a; }'
+assert 8 '{ int a = 0, b = 5, c = 3; return b + 3; }'
+assert 42 '{ int a, b; a = ret42(); b = ret0(); return a + b; }'
+assert 52 '{ int x, y; x = 10; y = ret42(); return x + y; }'
+assert 42 '{ return ret42() + ret0(); }'
+assert 42 '{ return ret42() - ret0(); }'
 
 echo OK

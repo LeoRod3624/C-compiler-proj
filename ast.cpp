@@ -53,6 +53,11 @@ object::object(){
 
 CType::~CType() {}
 
+NodeFunctionCall::NodeFunctionCall(const string& functionName) {
+    this->functionName = functionName;
+    c_type = new CIntType();
+}
+
 NodeDeclList::NodeDeclList(std::vector<NodeDecl*> decls) {
     this->decls = decls;
 }
@@ -61,6 +66,11 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
+    if (init) {
+        c_type = init->c_type; // Use initializer's type
+    } else {
+        c_type = new CIntType(); // Default to int if no initializer
+    }
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -251,6 +261,7 @@ NodeDeclList* declaration() {
         }
 
         var_map[varName] = new object();
+        var_map[varName]->c_type = new CIntType();
 
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
 
@@ -426,21 +437,28 @@ NodeId* id(){
     return result;
 }
 NodeExpr* primary() {
-    if(tokens[tokens_i]->kind == TK_NUM){
+    if (tokens[tokens_i]->kind == TK_NUM) {
         return num();
-    }
-    else if(tokens[tokens_i]->kind == TK_ID){
+    } else if (tokens[tokens_i]->kind == TK_ID) {
+        string functionName = tokens[tokens_i]->id;
+
+        // Check if this is a function call
+        if (tokens[tokens_i + 1]->kind == TK_PUNCT && tokens[tokens_i + 1]->punct == "(") {
+            tokens_i += 2; // Skip `id` and `(`
+            assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Function calls cannot have arguments yet");
+            tokens_i++; // Skip `)`
+            return new NodeFunctionCall(functionName);
+        }
+
+        // Otherwise, it's a variable reference
         return id();
-    }
-    else if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "("){
+    } else if (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(") {
         tokens_i++;
         NodeExpr* _expr = expr();
-        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
-        assert(tokens[tokens_i]->punct == ")" && "MUST BE CLOSING PARENTHESIS");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
         tokens_i++;
         return _expr;
-    }
-    else{
+    } else {
         cerr << "Error: Unexpected token in primary" << endl;
         exit(1);
     }
