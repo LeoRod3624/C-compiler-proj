@@ -55,7 +55,8 @@ CType::~CType() {}
 
 NodeFunctionCall::NodeFunctionCall(const string& functionName) {
     this->functionName = functionName;
-    c_type = new CIntType();
+    c_type = new CIntType();//This is only assumed for now since we are only dealing with functions 
+    //of return type INT. PLEASE FOR THE LOVE OF GOD fix this when the time comes.
 }
 
 NodeDeclList::NodeDeclList(std::vector<NodeDecl*> decls) {
@@ -66,11 +67,16 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
-    if (init) {
-        c_type = init->c_type; // Use initializer's type
+
+    if (pointerDepth > 0) {
+        c_type = new CPtrType(new CIntType());
+        for (int i = 1; i < pointerDepth; ++i) {
+            c_type = new CPtrType(c_type);
+        }
     } else {
-        c_type = new CIntType(); // Default to int if no initializer
+        c_type = new CIntType();
     }
+    var_map[varName]->c_type = c_type;
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -82,7 +88,7 @@ NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
 }
 
 NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {
-    if(lhs->is_NodeId()) {
+    if (lhs->is_NodeId()) {
         lhs->c_type = rhs->c_type;
         var_map[((NodeId*)(lhs))->id]->c_type = lhs->c_type;
     }

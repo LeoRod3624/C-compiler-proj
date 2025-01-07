@@ -22,8 +22,8 @@ void NodeAdd::codegen() {
     lhs->codegen();
     cout << "  str x0, [sp, -16]!" << endl;
     rhs->codegen();
-    if(c_type->isPtrType()) {
-        cout << "  mov x1, 8" << endl;
+    if (lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
+        cout << "  mov x1, " << lhs->c_type->size << endl;
         cout << "  mul x0, x0, x1" << endl;
     }
     cout << "  ldr x1, [sp], 16" << endl;
@@ -197,7 +197,7 @@ void NodeBlockStmt::codegen(){
 }
 
 void NodeDecl::codegen() {
-    if(initializer) {
+    if (initializer) {
         initializer->codegen();
         int offset = var_map[varName]->offSet;
         cout << "  str x0, [fp, -" << offset << "]" << endl;
@@ -226,7 +226,7 @@ static void emit_prologue() {
 }
 
 static void emit_epilogue() {
-    cout << ".L.return:" << endl;
+    cout << ".L.return" << ":" << endl;
     cout << "  add sp, sp, #" << round16(var_map.size()*8) << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  ret" << endl;

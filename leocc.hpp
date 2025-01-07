@@ -132,9 +132,7 @@ void tokenize(char* p);
 class CType {
 public:
     uint size; // in bytes
-
     virtual ~CType() = 0;
-
     virtual bool isIntType();
     virtual bool isPtrType();
 };

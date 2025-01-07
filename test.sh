@@ -102,7 +102,6 @@ assert 42 '{ int x; x = 42; return x; }'
 assert 5 '{ int a, b; b = 5; return b; }'
 assert 10 '{ int *p, x; x = 10; p = &x; return *p; }'
 
-#THESE WORKvvvvvvv
 assert 42 '{ return ret42(); }'
 assert 0 '{ return ret0(); }'
 assert 42 '{ int x; x = ret42(); return x; }'
@@ -120,5 +119,7 @@ assert 42 '{ int a, b; a = ret42(); b = ret0(); return a + b; }'
 assert 52 '{ int x, y; x = 10; y = ret42(); return x + y; }'
 assert 42 '{ return ret42() + ret0(); }'
 assert 42 '{ return ret42() - ret0(); }'
+
+assert 16 '{ int* a = 8; return a + 1;}'
 
 echo OK
