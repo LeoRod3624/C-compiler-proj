@@ -188,7 +188,8 @@ public:
 class NodeFunctionCall : public NodeExpr {
 public:
     string functionName;
-    NodeFunctionCall(const string& name);
+    vector<NodeExpr*> args;
+    NodeFunctionCall(const string& name, const vector<NodeExpr*>& args);
     void codegen() override;
 };
 

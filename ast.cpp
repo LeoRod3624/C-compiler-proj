@@ -53,8 +53,9 @@ object::object(){
 
 CType::~CType() {}
 
-NodeFunctionCall::NodeFunctionCall(const string& functionName) {
+NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
+    this->args = args;
     c_type = new CIntType();//This is only assumed for now since we are only dealing with functions 
     //of return type INT. PLEASE FOR THE LOVE OF GOD fix this when the time comes.
 }
@@ -451,9 +452,22 @@ NodeExpr* primary() {
         // Check if this is a function call
         if (tokens[tokens_i + 1]->kind == TK_PUNCT && tokens[tokens_i + 1]->punct == "(") {
             tokens_i += 2; // Skip `id` and `(`
-            assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Function calls cannot have arguments yet");
+
+            // Parse function arguments
+            vector<NodeExpr*> args;
+            if (!(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")")) {
+                args.push_back(assign());
+                while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ",") {
+                    tokens_i++; // Skip `,`
+                    args.push_back(assign());
+                }
+            }
+
+            // Ensure we close the function call with `)`
+            assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
             tokens_i++; // Skip `)`
-            return new NodeFunctionCall(functionName);
+
+            return new NodeFunctionCall(functionName, args);
         }
 
         // Otherwise, it's a variable reference
@@ -469,6 +483,7 @@ NodeExpr* primary() {
         exit(1);
     }
 }
+
 
 NodeExpr* mul() {
     NodeExpr* result = unary();

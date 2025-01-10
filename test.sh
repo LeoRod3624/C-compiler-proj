@@ -5,6 +5,7 @@ GCC=gcc
 TMP=tmp
 RUN_LINE="./$TMP"
 TEST_FUNCTIONS=test_functions.s  # External assembly file for function definitions
+TEST_FUNCTIONS2=c_test_functions.c # External c file for function definitions
 
 assert() {
     expected="$1"
@@ -14,7 +15,7 @@ assert() {
     ./leocc "$input" > $TMP.s || exit
 
     # Link with the external assembly file for function definitions
-    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
+    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS $TEST_FUNCTIONS2
 
     # Run the resulting executable
     $RUN_LINE
@@ -121,5 +122,21 @@ assert 42 '{ return ret42() + ret0(); }'
 assert 42 '{ return ret42() - ret0(); }'
 
 assert 16 '{ int* a = 8; return a + 1;}'
+
+assert 9 '{ return add_two_numbers(4, 5); }' #assembly style tests
+assert 0 '{ return add_two_numbers(255, 1); }' #This makes sense because we can only have vals 0-255, so 256 is just the next set of 'bits'.
+assert 4 '{ return add_two_numbers(add_two_numbers(1,1), 1+1); }' 
+assert 21 '{ return add6(1,2,3,4,5,6); }'
+assert 3 '{ return subtract_two_numbers(5, 2); }'
+assert 12 '{ return subtract_two_numbers(8, -4); }'
+#Both tests are linked to my assembly file.
+assert 8 '{ return add(3, 5); }' #c style function tests
+assert 10 '{ return add(2 + 3, 5); }'
+assert 7 '{ int x = add(2,2); return add(x,3); }'
+assert 21 '{ return add6(1,2,3,4,5,6); }'
+assert 11 '{ return inc2(inc2(7)); }'
+assert 2 '{ return sub(5, 3); }'
+assert 66 '{ return add6(1,2,add6(3,4,5,6,7,8),9,10,11); }'
+assert 137 '{ return add6(1,2,add6(3,add6(4,5,6,7,8,9),10,11,12,13),14,15,16+1); }'
 
 echo OK
