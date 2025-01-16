@@ -132,9 +132,7 @@ void tokenize(char* p);
 class CType {
 public:
     uint size; // in bytes
-
     virtual ~CType() = 0;
-
     virtual bool isIntType();
     virtual bool isPtrType();
 };
@@ -187,6 +185,14 @@ public:
     virtual void codegen() = 0;
 };
 
+class NodeFunctionCall : public NodeExpr {
+public:
+    string functionName;
+    vector<NodeExpr*> args;
+    NodeFunctionCall(const string& name, const vector<NodeExpr*>& args);
+    void codegen() override;
+};
+
 class NodeDereference : public NodeExpr {
 public:
     NodeExpr* _expr;
@@ -214,6 +220,7 @@ class NodeAddressOf : public NodeExpr {
 class NodeDecl : public Node {
 public:
     std::string varName;
+    CType* c_type = nullptr;
     int pointerDepth;
     NodeExpr* initializer;
 

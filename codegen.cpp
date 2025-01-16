@@ -22,8 +22,8 @@ void NodeAdd::codegen() {
     lhs->codegen();
     cout << "  str x0, [sp, -16]!" << endl;
     rhs->codegen();
-    if(c_type->isPtrType()) {
-        cout << "  mov x1, 8" << endl;
+    if (lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
+        cout << "  mov x1, " << lhs->c_type->size << endl;
         cout << "  mul x0, x0, x1" << endl;
     }
     cout << "  ldr x1, [sp], 16" << endl;
@@ -40,7 +40,6 @@ void NodeSub::codegen(){
     cout << "  ldr x1, [sp], 16" << endl;
     cout << "  sub x0, x1, x0" << endl;
     if(lhs->c_type->isPtrType() && rhs->c_type->isPtrType()) {
-        cout << "// insert code here" << endl;
         cout << "  mov x1, 8" << endl;
         cout << "  sdiv x0, x0, x1" << endl;
     }
@@ -197,7 +196,7 @@ void NodeBlockStmt::codegen(){
 }
 
 void NodeDecl::codegen() {
-    if(initializer) {
+    if (initializer) {
         initializer->codegen();
         int offset = var_map[varName]->offSet;
         cout << "  str x0, [fp, -" << offset << "]" << endl;
@@ -208,6 +207,17 @@ void NodeDeclList::codegen() {
     for(NodeDecl* decl : decls){
         decl->codegen();
     }
+}
+
+void NodeFunctionCall::codegen() {
+    for (size_t i = 0; i < args.size(); i++) {
+        args[i]->codegen();
+        cout << "  str x0, [sp, -16]!" << endl;
+    }
+    for(int i = args.size() - 1; i >= 0; i--) {
+        cout << "  ldr x" << i << ", [sp], 16" << endl;
+    }
+    cout << "  bl " << functionName << endl;
 }
 
 void NodeNullStmt::codegen(){
@@ -222,7 +232,7 @@ static void emit_prologue() {
 }
 
 static void emit_epilogue() {
-    cout << ".L.return:" << endl;
+    cout << ".L.return" << ":" << endl;
     cout << "  add sp, sp, #" << round16(var_map.size()*8) << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  ret" << endl;

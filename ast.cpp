@@ -53,6 +53,13 @@ object::object(){
 
 CType::~CType() {}
 
+NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
+    this->functionName = functionName;
+    this->args = args;
+    c_type = new CIntType();//This is only assumed for now since we are only dealing with functions 
+    //of return type INT. PLEASE FOR THE LOVE OF GOD fix this when the time comes.
+}
+
 NodeDeclList::NodeDeclList(std::vector<NodeDecl*> decls) {
     this->decls = decls;
 }
@@ -61,6 +68,16 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
+
+    if (pointerDepth > 0) {
+        c_type = new CPtrType(new CIntType());
+        for (int i = 1; i < pointerDepth; ++i) {
+            c_type = new CPtrType(c_type);
+        }
+    } else {
+        c_type = new CIntType();
+    }
+    var_map[varName]->c_type = c_type;
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -72,7 +89,7 @@ NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
 }
 
 NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {
-    if(lhs->is_NodeId()) {
+    if (lhs->is_NodeId()) {
         lhs->c_type = rhs->c_type;
         var_map[((NodeId*)(lhs))->id]->c_type = lhs->c_type;
     }
@@ -251,6 +268,7 @@ NodeDeclList* declaration() {
         }
 
         var_map[varName] = new object();
+        var_map[varName]->c_type = new CIntType();
 
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
 
@@ -426,25 +444,46 @@ NodeId* id(){
     return result;
 }
 NodeExpr* primary() {
-    if(tokens[tokens_i]->kind == TK_NUM){
+    if (tokens[tokens_i]->kind == TK_NUM) {
         return num();
-    }
-    else if(tokens[tokens_i]->kind == TK_ID){
+    } else if (tokens[tokens_i]->kind == TK_ID) {
+        string functionName = tokens[tokens_i]->id;
+
+        // Check if this is a function call
+        if (tokens[tokens_i + 1]->kind == TK_PUNCT && tokens[tokens_i + 1]->punct == "(") {
+            tokens_i += 2; // Skip `id` and `(`
+
+            // Parse function arguments
+            vector<NodeExpr*> args;
+            if (!(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")")) {
+                args.push_back(assign());
+                while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ",") {
+                    tokens_i++; // Skip `,`
+                    args.push_back(assign());
+                }
+            }
+
+            // Ensure we close the function call with `)`
+            assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
+            tokens_i++; // Skip `)`
+
+            return new NodeFunctionCall(functionName, args);
+        }
+
+        // Otherwise, it's a variable reference
         return id();
-    }
-    else if(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "("){
+    } else if (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(") {
         tokens_i++;
         NodeExpr* _expr = expr();
-        assert(tokens[tokens_i]->kind == TK_PUNCT && "HAS TO BE a punct");
-        assert(tokens[tokens_i]->punct == ")" && "MUST BE CLOSING PARENTHESIS");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
         tokens_i++;
         return _expr;
-    }
-    else{
+    } else {
         cerr << "Error: Unexpected token in primary" << endl;
         exit(1);
     }
 }
+
 
 NodeExpr* mul() {
     NodeExpr* result = unary();
