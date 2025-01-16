@@ -53,6 +53,11 @@ object::object(){
 
 CType::~CType() {}
 
+NodeFunctionDef::NodeFunctionDef(const string& functionName, NodeBlockStmt* body) {
+    this->functionName = functionName;
+    this->body = body;
+}
+
 NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
     this->args = args;
@@ -211,9 +216,9 @@ NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
     }
 }
 
-NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
+NodeProgram::NodeProgram(vector<Node*> _stmts){
     stmts = _stmts;
-    for( NodeStmt* s:stmts){
+    for( Node* s:stmts){
         s->parent = this;
     }   
 }
@@ -231,13 +236,41 @@ NodeReturnStmt::NodeReturnStmt(NodeExpr* e) {
     _expr->parent = this;
 }
 
+NodeFunctionDef* func_def() {
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier, which for now will be INT for all cases");
+    tokens_i++;
+    // Skip `int`
+    assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");//for now we are only expecting main?
+    string functionName = tokens[tokens_i++]->id;
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
+    tokens_i++; 
+    // Skip '('
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' for zero-argument function");
+    tokens_i++;
+    // Skip ')' 
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{' to start function body");// Parse the function body
+    tokens_i++;
+    // Skip '{'
+    NodeBlockStmt* body = block_stmt();
+
+    return new NodeFunctionDef(functionName, body);
+}
+
+
 NodeProgram* program() {
-    vector<NodeStmt*> stmts;
-    while(tokens[tokens_i]->kind != TK_EOF){
-        stmts.push_back(stmt());
+    vector<Node*> functions;
+
+    while (tokens[tokens_i]->kind != TK_EOF) {
+        if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
+            // Parse function definition
+            functions.push_back(func_def());
+        } else {
+            cerr << "Error: Unexpected token in program" << endl;
+            exit(1);
+        }
     }
-    NodeProgram* Node_Program = new NodeProgram(stmts);
-    return Node_Program;
+
+    return new NodeProgram(functions);
 }
 
 NodeDeclList* declaration() {
