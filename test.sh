@@ -4,8 +4,7 @@
 GCC=gcc
 TMP=tmp
 RUN_LINE="./$TMP"
-TEST_FUNCTIONS=test_functions.s  # External assembly file for function definitions
-TEST_FUNCTIONS2=c_test_functions.c # External c file for function definitions
+TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
 
 assert() {
     expected="$1"
@@ -15,7 +14,7 @@ assert() {
     ./leocc "$input" > $TMP.s || exit
 
     # Link with the external assembly file for function definitions
-    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS $TEST_FUNCTIONS2
+    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
 
     # Run the resulting executable
     $RUN_LINE
