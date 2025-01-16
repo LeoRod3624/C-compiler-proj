@@ -174,8 +174,8 @@ public:
 };
 class NodeProgram : public Node {
     public:
-    vector<NodeStmt*> stmts;
-    NodeProgram(vector<NodeStmt*> vec);
+    vector<Node*> stmts;
+    NodeProgram(vector<Node*> vec);
     void codegen() override;
 };
 
@@ -268,6 +268,15 @@ class NodeBlockStmt: public NodeStmt {
     public:
     vector<NodeStmt*> stmt_list;
     NodeBlockStmt(vector<NodeStmt*> s);
+    void codegen() override;
+};
+
+class NodeFunctionDef : public Node {
+public:
+    string functionName;
+    NodeBlockStmt* body;//the literal body of the function
+
+    NodeFunctionDef(const string& name, NodeBlockStmt* body);
     void codegen() override;
 };
 
