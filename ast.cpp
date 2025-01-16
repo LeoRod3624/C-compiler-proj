@@ -5,6 +5,8 @@
 /*
 // Main program structure
 program = stmt*
+program = func-def*
+func-def = declspec declarator "{" block-stmt
 block-stmt = (declaration | stmt)* "}"
 stmt = "return" expr ";"
      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -15,6 +17,11 @@ stmt = "return" expr ";"
 declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
 declspec = "int"
 declarator = "*"* id
+declarator = "*"* id type-suffix
+type-suffix = ("(" func-params? ")")? //doing func-defs without arguments, so for now we can use this rule
+type-suffix = ( "(" ")" )?
+func-params = param ("," param)*
+param       = declspec declarator
 expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
