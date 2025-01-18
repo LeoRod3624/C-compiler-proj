@@ -60,10 +60,8 @@ object::object(){
 
 CType::~CType() {}
 
-NodeFunctionDef::NodeFunctionDef(const string& functionName, NodeBlockStmt* body) {
-    this->functionName = functionName;
-    this->body = body;
-}
+NodeFunctionDef::NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body)
+    : declspec(declspec), declarator(declarator), body(body) {}
 
 NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
@@ -223,11 +221,8 @@ NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
     }
 }
 
-NodeProgram::NodeProgram(vector<Node*> _stmts){
-    stmts = _stmts;
-    for( Node* s:stmts){
-        s->parent = this;
-    }   
+NodeProgram::NodeProgram(std::vector<NodeFunctionDef*> func_defs) {
+    this->func_defs = std::move(func_defs);
 }
 
 NodeId::NodeId(std::string _id) : id(_id) {
@@ -247,7 +242,7 @@ NodeFunctionDef* func_def() {
     assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier, which for now will be INT for all cases");
     tokens_i++;
     // Skip `int`
-    assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");//for now we are only expecting main?
+    assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");
     string functionName = tokens[tokens_i++]->id;
     assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
     tokens_i++; 
@@ -259,13 +254,12 @@ NodeFunctionDef* func_def() {
     tokens_i++;
     // Skip '{'
     NodeBlockStmt* body = block_stmt();
-
-    return new NodeFunctionDef(functionName, body);
+    return new NodeFunctionDef("int", functionName, body);
 }
 
 
 NodeProgram* program() {
-    vector<Node*> functions;
+    vector<NodeFunctionDef*> functions;
 
     while (tokens[tokens_i]->kind != TK_EOF) {
         if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {

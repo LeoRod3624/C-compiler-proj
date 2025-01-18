@@ -122,9 +122,9 @@ void NodeNE::codegen(){
 }
 
 void NodeProgram::codegen(){
-    for(NodeStmt* stmt : stmts) {
-        stmt->codegen();
-    }
+    for (NodeFunctionDef* func_def : func_defs) {
+    func_def->codegen();
+}
 }
 
 void NodeExprStmt::codegen(){
@@ -211,13 +211,13 @@ void NodeDeclList::codegen() {
 
 void NodeFunctionCall::codegen() {
     for (size_t i = 0; i < args.size(); i++) {
-        args[i]->codegen();
-        cout << "  str x0, [sp, -16]!" << endl;
+        args[i]->codegen();  // Generate code for argument
+        cout << "  str x0, [sp, -16]!" << endl;  // Push argument onto the stack
     }
-    for(int i = args.size() - 1; i >= 0; i--) {
-        cout << "  ldr x" << i << ", [sp], 16" << endl;
+    for (int i = args.size() - 1; i >= 0; i--) {
+        cout << "  ldr x" << i << ", [sp], 16" << endl;  // Pop arguments into registers
     }
-    cout << "  bl " << functionName << endl;
+    cout << "  bl " << functionName << endl;  // Branch to function
 }
 
 void NodeNullStmt::codegen(){
@@ -231,18 +231,33 @@ static void emit_prologue() {
     cout << "  sub sp, sp, #" << stackSize << endl;
 }
 
-static void emit_epilogue() {
-    cout << ".L.return" << ":" << endl;
-    cout << "  add sp, sp, #" << round16(var_map.size()*8) << endl;
+static void emit_epilogue(const string& funcName = "") {
+    if (funcName.empty()) {
+        cout << ".L.return:" << endl;  // Default return label
+    } else {
+        cout << ".L." << funcName << ".return:" << endl;  // Unique return label for each function
+    }
+    cout << "  add sp, sp, #" << round16(var_map.size() * 8) << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  ret" << endl;
 }
 
-void do_codegen(Node* root) {
-    cout << ".global main" << endl;
-    cout << "main:" << endl;
+void NodeFunctionDef::codegen() {
+    cout << ".global " << declarator << endl;
+    cout << declarator << ":" << endl;
 
-    emit_prologue();
-    root->codegen();
-    emit_epilogue();
+    emit_prologue();  // Emit function prologue
+    if (body) {
+        body->codegen();  // Generate function body
+    }
+    emit_epilogue(declarator);  // Emit unique epilogue
 }
+
+
+
+void do_codegen(Node* root) {
+    emit_prologue();  // Emit the prologue for the program
+    root->codegen();  // Generate code for the program's AST
+    emit_epilogue();  // Emit the default epilogue for the main program
+}
+

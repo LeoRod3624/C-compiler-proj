@@ -172,12 +172,6 @@ class NodeStmt : public Node {
 public:
     virtual void codegen() = 0;
 };
-class NodeProgram : public Node {
-    public:
-    vector<Node*> stmts;
-    NodeProgram(vector<Node*> vec);
-    void codegen() override;
-};
 
 class NodeExpr : public Node {
 public:
@@ -273,11 +267,22 @@ class NodeBlockStmt: public NodeStmt {
 
 class NodeFunctionDef : public Node {
 public:
-    string functionName;
-    NodeBlockStmt* body;//the literal body of the function
+    std::string declspec;           // Function type (like int or void)
+    std::string declarator;         // Function name
+    NodeBlockStmt* body;            // Function body
 
-    NodeFunctionDef(const string& name, NodeBlockStmt* body);
+    NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body);
+
     void codegen() override;
+};
+
+class NodeProgram : public Node {
+public:
+    std::vector<NodeFunctionDef*> func_defs; // List of function definitions
+
+    NodeProgram(std::vector<NodeFunctionDef*> func_defs);
+
+    void codegen() override; // Code generation for the entire program aka big papa
 };
 
 class NodeExprStmt : public NodeStmt {
