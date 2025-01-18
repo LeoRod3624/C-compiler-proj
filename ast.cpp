@@ -19,7 +19,6 @@ declspec = "int"
 declarator = "*"* id
 declarator = "*"* id type-suffix
 type-suffix = ("(" func-params? ")")? //doing func-defs without arguments, so for now we can use this rule
-type-suffix = ( "(" ")" )?
 func-params = param ("," param)*
 param       = declspec declarator
 expr-stmt = expr? ";"
