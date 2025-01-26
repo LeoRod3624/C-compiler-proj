@@ -59,8 +59,9 @@ object::object(){
 
 CType::~CType() {}
 
-NodeFunctionDef::NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body)
-    : declspec(declspec), declarator(declarator), body(body) {}
+NodeFunctionDef::NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params)
+    : declspec(std::move(declspec)), declarator(std::move(declarator)), body(body), params(std::move(params)) {}
+
 
 NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
@@ -77,6 +78,10 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
+    if (var_map.find(varName) != var_map.end()) {
+        cerr << "Error: Variable '" << varName << "' is already declared." << endl;
+        exit(1);
+    }
 
     if (pointerDepth > 0) {
         c_type = new CPtrType(new CIntType());
@@ -86,7 +91,10 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     } else {
         c_type = new CIntType();
     }
+    //ITS CRASHING RIGHT HERE
+    var_map[varName] = new object();
     var_map[varName]->c_type = c_type;
+    //^^^^^^^^^^^^^^^^^^^^^^^^
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -238,22 +246,36 @@ NodeReturnStmt::NodeReturnStmt(NodeExpr* e) {
 }
 
 NodeFunctionDef* func_def() {
-    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier, which for now will be INT for all cases");
-    tokens_i++;
-    // Skip `int`
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier");
+    tokens_i++; // Skip `int`
+
     assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");
     string functionName = tokens[tokens_i++]->id;
     assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
-    tokens_i++; 
-    // Skip '('
-    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' for zero-argument function");
-    tokens_i++;
-    // Skip ')' 
-    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{' to start function body");// Parse the function body
-    tokens_i++;
-    // Skip '{'
+    tokens_i++; // Skip `(`
+
+    // Parse parameters
+    vector<NodeDecl*> params;
+    if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
+        do {
+            // Parse parameter
+            assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected parameter type");
+            tokens_i++; // Skip `int`
+            assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
+            std::string paramName = tokens[tokens_i++]->id;
+            params.push_back(new NodeDecl(paramName, 0, nullptr)); // Add parameter to the list
+        } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
+    }
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')' for function parameters");
+    tokens_i++; // Skip `)`
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{' to start function body");
+    tokens_i++; // Skip `{`
+
     NodeBlockStmt* body = block_stmt();
-    return new NodeFunctionDef("int", functionName, body);
+
+    return new NodeFunctionDef("int", functionName, body, params);
 }
 
 
@@ -294,15 +316,6 @@ NodeDeclList* declaration() {
             tokens_i++; // Consume '='
             initializer = expr();
         }
-
-        if (var_map.find(varName) != var_map.end()) {
-            cerr << "Error: Variable '" << varName << "' is already declared." << endl;
-            exit(1);
-        }
-
-        var_map[varName] = new object();
-        var_map[varName]->c_type = new CIntType();
-
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
 
     } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);

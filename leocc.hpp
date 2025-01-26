@@ -270,8 +270,9 @@ public:
     std::string declspec;           // Function type (like int or void)
     std::string declarator;         // Function name
     NodeBlockStmt* body;            // Function body
+    vector<NodeDecl*> params;
 
-    NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body);
+    NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params);
 
     void codegen() override;
 };

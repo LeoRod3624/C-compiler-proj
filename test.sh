@@ -145,4 +145,10 @@ assert 42 "int main() { return 42; }"
 assert 10 "int ret10() { return 10; } int main() { return ret10(); }"
 assert 0 "int main() { return 0; }"
 
+assert 42 "int identity(int x) { return x; } int main() { return identity(42); }"
+
+# assert 15 "int ADD(int a, int b) { return a + b; } int main() { return ADD(10, 5); }"
+# assert 21 "int ADD6(int a, int b, int c, int d, int e, int f) { return a + b + c + d + e + f; } int main() { return ADD6(1, 2, 3, 4, 5, 6); }"
+assert 42 "int identity(int x) { return x; } int main() { return identity(42); }"
+
 echo OK
