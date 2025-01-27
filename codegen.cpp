@@ -362,15 +362,23 @@ void NodeFunctionDef::codegen() {
     cout << ".global " << declarator << endl;
     cout << declarator << ":" << endl;
 
-    emit_prologue();  // Emit prologue for this function    
+    emit_prologue();  // Emit prologue for this function
+    // Mapping arguments to local variables
+    for (size_t i = 0; i < params.size(); ++i) {
+        int offset = var_map[params[i]->varName]->offSet;  // Get stack offset for the parameter
+        if (i < 8) {
+            emit_store_to_stack("x" + to_string(i), offset);  // Save to stack
+        } else {
+            // Handle spilled arguments
+        }
+    }
+
     // Emit function body
     if (body) {
         body->codegen();
     }
-    emit_epilogue();  // Emit epilogue for this function
+    emit_epilogue();  // Emit epilogue for the function
 }
-
-
 
 void do_codegen(Node* root) {
     root->codegen();  // Generate code for the program's AST
