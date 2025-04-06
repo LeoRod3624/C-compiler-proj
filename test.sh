@@ -151,4 +151,30 @@ assert 15 "int ADD(int a, int b) { return a + b; } int main() { return ADD(10, 5
 assert 21 "int ADD6(int a, int b, int c, int d, int e, int f) { return a + b + c + d + e + f; } int main() { return ADD6(1, 2, 3, 4, 5, 6); }"
 assert 42 "int identity(int x) { return x; } int main() { return identity(42); }"
 
+
+assert 3 'int main() { int x, *y, **z; x = 3; y = &x; z = &y; return **z; }'
+assert 3 'int main() { int x ;int* y;x = 3;y = &x;return *y;}'
+
+assert 42 'int main() {int x, *y, **z, ***w;x = 42;y = &x;z = &y;w = &z;return ***w;}'
+assert 10 'int deref(int* p) { return *p; } int main() { int x = 10; return deref(&x); }'
+
+# 9. Return from function with 4-level pointer param
+assert 99 'int f(int**** pppp) { return ****pppp; } int main() { int a = 99, *b = &a, **c = &b, ***d = &c; return f(&d); }'
+
+# 10. Modify value through triple pointer and return it
+assert 100 'int main() { int a, *b, **c, ***d; b = &a; c = &b; d = &c; ***d = 100; return a; }'
+
+#11. Function adds dereferenced pointer values
+assert 111 'int f(int* x, int* y) { return *x + *y;} int main() { int a = 50, b = 61; return f(&a, &b); }'
+
+# # 12. Return value instead of modifying via void
+#----------THIS IS THE LAST TEST THAT FAILED
+#assert 120 'int set(int** p, int val) { **p = val; return **p; } int main() { int a, *b; b = &a; return set(&b, 120); }'
+
+# # 13. Pointer math inside function
+# assert 130 'int f(int* p) { return *(p + 1); } int main() { int x = 5, y = 130; return f(&x); }'
+
+# # 14. Function takes int param from dereferenced pointer
+# assert 140 'int f(int n) { return n; } int main() { int a = 140, *b = &a; return f(*b); }'
+
 echo OK

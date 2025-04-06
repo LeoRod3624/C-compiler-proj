@@ -123,10 +123,15 @@ void NodeAddressOf::codegen() {
 }
 
 void NodeDereference::codegen() {
-    _expr->codegen();
-    if (!parent->is_NodeAssign()) {
+    _expr->codegen();  // address goes into accum_reg
+    // Only emit dereference if this node is not the LHS of an assignment
+    bool isLHS = parent && parent->is_NodeAssign() && ((NodeAssign*)parent)->lhs == this;
+    if (!isLHS) {
         emit_dereference(accum_reg);
     }
+
+    // If it IS lhs of an assignment, then we don't emit dereference here.
+    // The address in accum_reg is where the value should be stored.
 }
 
 void NodeNum::codegen() {
@@ -245,13 +250,32 @@ void NodeExprStmt::codegen(){
     _expr->codegen();
 }
 
+void NodeDereference::codegen_lvalue_address() {
+    if (_expr->is_NodeDereference()) {
+        ((NodeDereference*)_expr)->codegen_lvalue_address();
+        emit_dereference(accum_reg);
+    } else {
+        _expr->codegen();  // Should be a NodeId or address-yielding expr
+    }
+}
+
 void NodeAssign::codegen() {
-    rhs->codegen();  // Generate code for the right-hand side expression
-    emit_push(accum_reg);  // Save the value of the RHS temporarily
-    lhs->codegen();  // Generate code for the left-hand side
-    emit_pop(scratch_reg);  // Restore the RHS value to a temporary register
-    emit_store_to_memory(accum_reg, scratch_reg);  // Store the RHS value in the LHS address
-    emit_move(accum_reg, scratch_reg);  // Move RHS value back to accum_reg
+    rhs->codegen();               // Evaluate RHS into accum_reg
+    emit_push(accum_reg);        // Save RHS value on stack
+
+    if (lhs->is_NodeDereference()) {
+        // Emit address for **lhs
+        ((NodeDereference*)lhs)->codegen_lvalue_address();
+    } else if (lhs->is_NodeId()) {
+        int offset = var_map[((NodeId*)lhs)->id]->offSet;
+        emit_add_to_fp(accum_reg, offset);  // Address of variable
+    } else {
+        cerr << "Codegen Error: Unsupported lhs in assignment." << endl;
+        exit(1);
+    }
+    emit_pop(scratch_reg);             // RHS value back into scratch
+    emit_store_to_memory(accum_reg, scratch_reg);  // Store value
+    emit_move(accum_reg, scratch_reg);             // Result = value
 }
 
 int round16(int n){

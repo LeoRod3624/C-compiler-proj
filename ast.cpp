@@ -91,10 +91,8 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     } else {
         c_type = new CIntType();
     }
-    //ITS CRASHING RIGHT HERE
     var_map[varName] = new object();
     var_map[varName]->c_type = c_type;
-    //^^^^^^^^^^^^^^^^^^^^^^^^
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -118,26 +116,40 @@ NodeDiv::NodeDiv(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "/") {
 }
 
 NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {
+    if (!lhs->c_type || !rhs->c_type) {
+        std::cerr << "TYPE ERROR in NodeSub: null c_type on lhs or rhs" << std::endl;
+        exit(1);
+    }
     if(rhs->c_type->isIntType() && lhs->c_type->isPtrType()) {
         c_type = new CPtrType(new CIntType());
-    }
-    else{
+    } else {
         c_type = new CIntType();
     }
 }
 
 NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {
+    if (!lhs->c_type || !rhs->c_type) {
+        std::cerr << "TYPE ERROR in NodeAdd: null c_type on lhs or rhs" << std::endl;
+        exit(1);
+    }
+    std::cerr << "[NodeAdd] lhs type: " << (lhs->c_type->isPtrType() ? "ptr" : "int")
+              << ", rhs type: " << (rhs->c_type->isPtrType() ? "ptr" : "int") << std::endl;
+
     if(lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
         c_type = new CPtrType(new CIntType());
     }
-    else if(lhs->c_type->isIntType() && rhs->c_type->isPtrType()){//ptr_arith is canonocolized so that the pointer
-        NodeExpr* temp = lhs;                                       // arith always follows "lhs = ptr| rhs = INT"
+    else if(lhs->c_type->isIntType() && rhs->c_type->isPtrType()) {
+        NodeExpr* temp = lhs;
         lhs = rhs;
         rhs = temp;
         c_type = new CPtrType(new CIntType());
     }
-    else{
+    else if(lhs->c_type->isIntType() && rhs->c_type->isIntType()) {
         c_type = new CIntType();
+    }
+    else {
+        std::cerr << "TYPE ERROR in NodeAdd: unsupported type combination" << std::endl;
+        exit(1);
     }
 }
 
@@ -197,7 +209,12 @@ NodeAddressOf::NodeAddressOf(NodeExpr* e){
 NodeDereference::NodeDereference(NodeExpr* e) {
     _expr = e;
     _expr->parent = this;
-};
+    if (!_expr->c_type || !_expr->c_type->isPtrType()) {
+        std::cerr << "TYPE ERROR: Cannot dereference non-pointer type or null type" << std::endl;
+        exit(1);
+    }
+    c_type = ((CPtrType*)_expr->c_type)->referenced_type;
+}
 
 NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Init = s1;
@@ -261,9 +278,17 @@ NodeFunctionDef* func_def() {
             // Parse parameter
             assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected parameter type");
             tokens_i++; // Skip `int`
+
+            int pointerDepth = 0;
+            while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*") {
+                pointerDepth++;
+                tokens_i++;
+            }
+            // Parse parameter name
             assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
             std::string paramName = tokens[tokens_i++]->id;
-            params.push_back(new NodeDecl(paramName, 0, nullptr)); // Add parameter to the list
+            // Add to parameter list
+            params.push_back(new NodeDecl(paramName, pointerDepth, nullptr));
         } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
     }
 
@@ -277,7 +302,6 @@ NodeFunctionDef* func_def() {
 
     return new NodeFunctionDef("int", functionName, body, params);
 }
-
 
 NodeProgram* program() {
     vector<NodeFunctionDef*> functions;
@@ -567,11 +591,18 @@ NodeExpr* add() {
     return result;
 }
 
-void reverse_offsets(){
-    for(auto pair : var_map){
-        int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
-        pair.second->offSet = stackSize - pair.second->offSet + 8;
-    }   
+void reverse_offsets() {
+    int total_vars = var_map.size();
+    int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
+
+    int i = 0;
+    for (auto& pair : var_map) {
+        // Assign offsets from top down so that newer vars are at lower memory
+        int offset = (total_vars - i) * 8;
+        pair.second->offSet = offset;
+        std::cerr << "[offset] " << pair.first << " -> -" << offset << std::endl;
+        ++i;
+    }
 }
 
 Node* abstract_parse() {

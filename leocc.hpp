@@ -192,6 +192,7 @@ public:
     NodeExpr* _expr;
     NodeDereference(NodeExpr* e);
     void codegen() override;
+    void codegen_lvalue_address();
     bool is_NodeDereference() override;
 };
 
