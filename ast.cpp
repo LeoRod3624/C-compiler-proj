@@ -5,6 +5,8 @@
 /*
 // Main program structure
 program = stmt*
+program = func-def*
+func-def = declspec declarator "{" block-stmt
 block-stmt = (declaration | stmt)* "}"
 stmt = "return" expr ";"
      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -15,6 +17,10 @@ stmt = "return" expr ";"
 declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
 declspec = "int"
 declarator = "*"* id
+declarator = "*"* id type-suffix
+type-suffix = ("(" func-params? ")")? //doing func-defs without arguments, so for now we can use this rule
+func-params = param ("," param)*
+param       = declspec declarator
 expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
@@ -53,6 +59,10 @@ object::object(){
 
 CType::~CType() {}
 
+NodeFunctionDef::NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params)
+    : declspec(std::move(declspec)), declarator(std::move(declarator)), body(body), params(std::move(params)) {}
+
+
 NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
     this->args = args;
@@ -68,6 +78,10 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
+    if (var_map.find(varName) != var_map.end()) {
+        cerr << "Error: Variable '" << varName << "' is already declared." << endl;
+        exit(1);
+    }
 
     if (pointerDepth > 0) {
         c_type = new CPtrType(new CIntType());
@@ -77,6 +91,7 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     } else {
         c_type = new CIntType();
     }
+    var_map[varName] = new object();
     var_map[varName]->c_type = c_type;
 }
 
@@ -101,26 +116,40 @@ NodeDiv::NodeDiv(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "/") {
 }
 
 NodeSub::NodeSub(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "-") {
+    if (!lhs->c_type || !rhs->c_type) {
+        std::cerr << "TYPE ERROR in NodeSub: null c_type on lhs or rhs" << std::endl;
+        exit(1);
+    }
     if(rhs->c_type->isIntType() && lhs->c_type->isPtrType()) {
         c_type = new CPtrType(new CIntType());
-    }
-    else{
+    } else {
         c_type = new CIntType();
     }
 }
 
 NodeAdd::NodeAdd(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "+") {
+    if (!lhs->c_type || !rhs->c_type) {
+        std::cerr << "TYPE ERROR in NodeAdd: null c_type on lhs or rhs" << std::endl;
+        exit(1);
+    }
+    std::cerr << "[NodeAdd] lhs type: " << (lhs->c_type->isPtrType() ? "ptr" : "int")
+              << ", rhs type: " << (rhs->c_type->isPtrType() ? "ptr" : "int") << std::endl;
+
     if(lhs->c_type->isPtrType() && rhs->c_type->isIntType()) {
         c_type = new CPtrType(new CIntType());
     }
-    else if(lhs->c_type->isIntType() && rhs->c_type->isPtrType()){//ptr_arith is canonocolized so that the pointer
-        NodeExpr* temp = lhs;                                       // arith always follows "lhs = ptr| rhs = INT"
+    else if(lhs->c_type->isIntType() && rhs->c_type->isPtrType()) {
+        NodeExpr* temp = lhs;
         lhs = rhs;
         rhs = temp;
         c_type = new CPtrType(new CIntType());
     }
-    else{
+    else if(lhs->c_type->isIntType() && rhs->c_type->isIntType()) {
         c_type = new CIntType();
+    }
+    else {
+        std::cerr << "TYPE ERROR in NodeAdd: unsupported type combination" << std::endl;
+        exit(1);
     }
 }
 
@@ -180,7 +209,12 @@ NodeAddressOf::NodeAddressOf(NodeExpr* e){
 NodeDereference::NodeDereference(NodeExpr* e) {
     _expr = e;
     _expr->parent = this;
-};
+    if (!_expr->c_type || !_expr->c_type->isPtrType()) {
+        std::cerr << "TYPE ERROR: Cannot dereference non-pointer type or null type" << std::endl;
+        exit(1);
+    }
+    c_type = ((CPtrType*)_expr->c_type)->referenced_type;
+}
 
 NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Init = s1;
@@ -211,11 +245,8 @@ NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
     }
 }
 
-NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
-    stmts = _stmts;
-    for( NodeStmt* s:stmts){
-        s->parent = this;
-    }   
+NodeProgram::NodeProgram(std::vector<NodeFunctionDef*> func_defs) {
+    this->func_defs = std::move(func_defs);
 }
 
 NodeId::NodeId(std::string _id) : id(_id) {
@@ -231,13 +262,61 @@ NodeReturnStmt::NodeReturnStmt(NodeExpr* e) {
     _expr->parent = this;
 }
 
-NodeProgram* program() {
-    vector<NodeStmt*> stmts;
-    while(tokens[tokens_i]->kind != TK_EOF){
-        stmts.push_back(stmt());
+NodeFunctionDef* func_def() {
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier");
+    tokens_i++; // Skip `int`
+
+    assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");
+    string functionName = tokens[tokens_i++]->id;
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
+    tokens_i++; // Skip `(`
+
+    // Parse parameters
+    vector<NodeDecl*> params;
+    if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
+        do {
+            // Parse parameter
+            assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected parameter type");
+            tokens_i++; // Skip `int`
+
+            int pointerDepth = 0;
+            while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*") {
+                pointerDepth++;
+                tokens_i++;
+            }
+            // Parse parameter name
+            assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
+            std::string paramName = tokens[tokens_i++]->id;
+            // Add to parameter list
+            params.push_back(new NodeDecl(paramName, pointerDepth, nullptr));
+        } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
     }
-    NodeProgram* Node_Program = new NodeProgram(stmts);
-    return Node_Program;
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')' for function parameters");
+    tokens_i++; // Skip `)`
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{' to start function body");
+    tokens_i++; // Skip `{`
+
+    NodeBlockStmt* body = block_stmt();
+
+    return new NodeFunctionDef("int", functionName, body, params);
+}
+
+NodeProgram* program() {
+    vector<NodeFunctionDef*> functions;
+
+    while (tokens[tokens_i]->kind != TK_EOF) {
+        if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
+            // Parse function definition
+            functions.push_back(func_def());
+        } else {
+            cerr << "Error: Unexpected token in program" << endl;
+            exit(1);
+        }
+    }
+
+    return new NodeProgram(functions);
 }
 
 NodeDeclList* declaration() {
@@ -261,15 +340,6 @@ NodeDeclList* declaration() {
             tokens_i++; // Consume '='
             initializer = expr();
         }
-
-        if (var_map.find(varName) != var_map.end()) {
-            cerr << "Error: Variable '" << varName << "' is already declared." << endl;
-            exit(1);
-        }
-
-        var_map[varName] = new object();
-        var_map[varName]->c_type = new CIntType();
-
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
 
     } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
@@ -521,11 +591,18 @@ NodeExpr* add() {
     return result;
 }
 
-void reverse_offsets(){
-    for(auto pair : var_map){
-        int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
-        pair.second->offSet = stackSize - pair.second->offSet + 8;
-    }   
+void reverse_offsets() {
+    int total_vars = var_map.size();
+    int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
+
+    int i = 0;
+    for (auto& pair : var_map) {
+        // Assign offsets from top down so that newer vars are at lower memory
+        int offset = (total_vars - i) * 8;
+        pair.second->offSet = offset;
+        std::cerr << "[offset] " << pair.first << " -> -" << offset << std::endl;
+        ++i;
+    }
 }
 
 Node* abstract_parse() {
