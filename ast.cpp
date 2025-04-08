@@ -36,7 +36,8 @@ id = <any string of id>
 */
 
 
-map<string, object*> var_map;
+map<string, map<string, object*>> var_map;
+string current_function = "";
 int object::counter = 0;
 NodeBlockStmt* block_stmt();
 NodeProgram* program();
@@ -78,11 +79,8 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
     this->pointerDepth = depth;
     this->initializer = init;
-    if (var_map.find(varName) != var_map.end()) {
-        cerr << "Error: Variable '" << varName << "' is already declared." << endl;
-        exit(1);
-    }
 
+    
     if (pointerDepth > 0) {
         c_type = new CPtrType(new CIntType());
         for (int i = 1; i < pointerDepth; ++i) {
@@ -91,10 +89,17 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     } else {
         c_type = new CIntType();
     }
-    //ITS CRASHING RIGHT HERE
-    var_map[varName] = new object();
-    var_map[varName]->c_type = c_type;
-    //^^^^^^^^^^^^^^^^^^^^^^^^
+
+    //SAFETY: skip var_map if current_function is unset
+    if (current_function.empty()) return;
+
+    if (var_map[current_function].count(varName)) {
+        cerr << "Variable already declared: " << varName << endl;
+        exit(1);
+    }
+    object* obj = new object();
+    obj->c_type = c_type;
+    var_map[current_function][varName] = obj;
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -108,7 +113,7 @@ NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
 NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {
     if (lhs->is_NodeId()) {
         lhs->c_type = rhs->c_type;
-        var_map[((NodeId*)(lhs))->id]->c_type = lhs->c_type;
+        var_map[current_function][((NodeId*)(lhs))->id]->c_type = lhs->c_type;
     }
     c_type = rhs->c_type;
 }
@@ -233,11 +238,11 @@ NodeProgram::NodeProgram(std::vector<NodeFunctionDef*> func_defs) {
 }
 
 NodeId::NodeId(std::string _id) : id(_id) {
-    if (var_map.find(id) == var_map.end()) {
+    if (var_map[current_function].find(id) == var_map[current_function].end()) {
         cerr << "Error: Variable '" << id << "' used without declaration." << endl;
         exit(1);
     }
-    c_type = var_map[id]->c_type;
+    c_type = var_map[current_function][id]->c_type;
 }
 
 NodeReturnStmt::NodeReturnStmt(NodeExpr* e) { 
@@ -251,6 +256,10 @@ NodeFunctionDef* func_def() {
 
     assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");
     string functionName = tokens[tokens_i++]->id;
+
+    current_function = functionName;
+    var_map[current_function] = map<string, object*>();
+    object::counter = 0;
     assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
     tokens_i++; // Skip `(`
 
@@ -263,7 +272,7 @@ NodeFunctionDef* func_def() {
             tokens_i++; // Skip `int`
             assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
             std::string paramName = tokens[tokens_i++]->id;
-            params.push_back(new NodeDecl(paramName, 0, nullptr)); // Add parameter to the list
+            params.push_back(new NodeDecl(paramName, 0, nullptr));
         } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
     }
 
@@ -278,14 +287,21 @@ NodeFunctionDef* func_def() {
     return new NodeFunctionDef("int", functionName, body, params);
 }
 
+void reverse_offsets(const string& function_name) {
+    for (auto& pair : var_map[function_name]) {
+        int stackSize = 8 * var_map[function_name].size();
+        pair.second->offSet = stackSize - pair.second->offSet + 8;
+    }
+}
 
 NodeProgram* program() {
     vector<NodeFunctionDef*> functions;
 
     while (tokens[tokens_i]->kind != TK_EOF) {
         if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
-            // Parse function definition
-            functions.push_back(func_def());
+            NodeFunctionDef* fn = func_def();
+            functions.push_back(fn);
+            reverse_offsets(fn->declarator);  // Important: use fn->declarator here
         } else {
             cerr << "Error: Unexpected token in program" << endl;
             exit(1);
@@ -567,17 +583,10 @@ NodeExpr* add() {
     return result;
 }
 
-void reverse_offsets(){
-    for(auto pair : var_map){
-        int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
-        pair.second->offSet = stackSize - pair.second->offSet + 8;
-    }   
-}
-
 Node* abstract_parse() {
-    object::counter=0;
+    object::counter = 0;
     NodeProgram* _program = program();
-    reverse_offsets();
+    // remove reverse_offsets() here
     return _program;
 }
 

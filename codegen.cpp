@@ -260,7 +260,7 @@ int round16(int n){
 }
 
 void NodeId::codegen() {
-    int byte_number = var_map[id]->offSet;
+    int byte_number = var_map[current_function][id]->offSet;
     emit_add_to_fp(accum_reg, byte_number);  // Calculate address relative to frame pointer
 
     if (!(parent && (parent->is_NodeAssign() || parent->is_NodeAddressOf()))) {
@@ -312,7 +312,7 @@ void NodeBlockStmt::codegen(){
 void NodeDecl::codegen() {
     if (initializer) {
         initializer->codegen();  // Generate code for the initializer expression
-        int offset = var_map[varName]->offSet;
+        int offset = var_map[current_function][varName]->offSet;
         emit_store_to_stack(accum_reg, offset);  // Store the value on the stack
     }
 }
@@ -346,13 +346,13 @@ static void emit_prologue() {
     cout << "  mov x29, sp" << endl;
 
     // Allocate stack space for local variables
-    int stackSize = round16(var_map.size() * 8);
+    int stackSize = round16(var_map[current_function].size() * 8);
     cout << "  sub sp, sp, #" << stackSize << endl;
 }
 
 static void emit_epilogue() {
     cout << ".L.return." << current_func_def_codegen->declarator << ":" << endl;
-    cout << "  add sp, sp, #" << round16(var_map.size() * 8) << endl;
+    cout << "  add sp, sp, #" << round16(var_map[current_function].size() * 8) << endl;
     cout << "  ldp x29, x30, [sp], 16" << endl;
     cout << "  mov " << return_reg << ", " << accum_reg << endl;;
     cout << "  ret" << endl;
@@ -361,11 +361,12 @@ static void emit_epilogue() {
 void NodeFunctionDef::codegen() {
     cout << ".global " << declarator << endl;
     cout << declarator << ":" << endl;
+    current_function = declarator;
 
     emit_prologue();  // Emit prologue for this function
     // Mapping arguments to local variables
     for (size_t i = 0; i < params.size(); ++i) {
-        int offset = var_map[params[i]->varName]->offSet;  // Get stack offset for the parameter
+        int offset = var_map[current_function][params[i]->varName]->offSet;  // Get stack offset for the parameter
         if (i < 8) {
             emit_store_to_stack("x" + to_string(i), offset);  // Save to stack
         } else {

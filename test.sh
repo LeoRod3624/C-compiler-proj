@@ -150,5 +150,11 @@ assert 0 "int main() { return 0; }"
 assert 15 "int ADD(int a, int b) { return a + b; } int main() { return ADD(10, 5); }"
 assert 21 "int ADD6(int a, int b, int c, int d, int e, int f) { return a + b + c + d + e + f; } int main() { return ADD6(1, 2, 3, 4, 5, 6); }"
 assert 42 "int identity(int x) { return x; } int main() { return identity(42); }"
+assert 5 "int f() { int x = 5; return x; } int g() { int x = 10; return x; } int main() { return f(); }"
+assert 15 "int f() { int x = 5; return x; } int g() { int x = 10; return x; } int main() { return f() + g(); }"
+
+
+assert 25 "int f() { int x = 5; return x; } int g() { int x = 10; return x; } int main() { int x = 10; return x + f() + g(); }"
+
 
 echo OK

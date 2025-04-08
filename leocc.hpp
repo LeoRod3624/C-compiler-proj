@@ -3,8 +3,9 @@
 #include <map>
 
 using namespace std;
-//START TOKENIZER
-class Token; 
+
+// START TOKENIZER
+class Token;
 
 enum TokenKind {
     TK_NUM = 0,
@@ -46,92 +47,12 @@ extern Token* current_tok;
 extern int tokens_i;
 
 void tokenize(char* p);
-//END TOKENIZER 
+// END TOKENIZER
 
-//START CONCRETE SYNTAX TREE 
-// class CNode;
-// class CExpr;
-// class CMul;
-// class CPrimary;
-// class CPrimaryList;
-// class CPunct;
-// class CNum;
-// class CMulList;
-// class CNumList;
-
-// class CNode {
-//     public:
-//     virtual void print_cst(int depth) = 0;
-// };
-
-
-// class CExpr : public CNode {
-// public:
-//     CMul* mul = nullptr;
-//     CMulList* mul_list = nullptr;
-//     void print_cst(int depth);
-// };
-
-// class CMul : public CNode {
-//     public:
-//     CPrimary* primary;
-//     CPrimaryList* primary_list;
-//     void print_cst(int depth) override;
-// };
-
-// class CPrimary : public CNode{
-//     public:
-//     CPunct* leftParenthesis;
-//     CExpr* expr;
-//     CPunct* rightParenthesis;
-//     CNum* num;
-//     void print_cst(int depth) override;
-// };
-
-// class CPrimaryList : CNode{
-//     public:
-//     CPunct* times_or_divides;
-//     CPrimary* primary;
-//     CPrimaryList* primary_list;
-//     void print_cst(int depth) override;
-// };
-
-// class CPunct : public CNode {
-// public:
-//     string punct;
-//     void print_cst(int depth) override;
-// };
-
-// class CMulList : public CNode {
-//     public:
-//     CPunct* plus_or_minus = nullptr;
-//     CMul* mul = nullptr;
-//     CMulList* mul_list = nullptr;
-//     void print_cst(int depth) override;
-
-// };
-
-// class CNum : public CNode { 
-//     public:
-//     unsigned int num_literal;
-//     void print_cst(int depth)override;
-// };
-
-// class CNumList : public CNode {
-//     public:
-//     CNode* times_or_divides;
-//     CNum* num;
-//     CNumList* num_list;
-//     void print_cst(int depth) override;
-// };
-
-// CNode* concrete_parse();
-//END CONCRETE SYNTAX TREE
-
-//START ABSTRACT SYNTAX TREE
+// START ABSTRACT SYNTAX TREE
 class CType {
 public:
-    uint size; // in bytes
+    uint size;
     virtual ~CType() = 0;
     virtual bool isIntType();
     virtual bool isPtrType();
@@ -150,24 +71,28 @@ public:
     CPtrType(CType* r);
 };
 
-class object{
-    public:
+class object {
+public:
     CType* c_type = nullptr;
     static int counter;
     int offSet;
     object();
 };
-extern map<string, object*> var_map;
+
+// Function-scoped variable map
+extern map<string, map<string, object*>> var_map;
+extern string current_function;
 
 class Node {
 public:
     virtual void codegen() = 0;
-    virtual bool is_NodeId(); 
+    virtual bool is_NodeId();
     virtual bool is_NodeAssign();
     virtual bool is_NodeAddressOf();
     virtual bool is_NodeDereference();
     Node* parent;
 };
+
 class NodeStmt : public Node {
 public:
     virtual void codegen() = 0;
@@ -196,7 +121,7 @@ public:
 };
 
 class NodeId : public NodeExpr {
-    public:
+public:
     string id;
     void codegen() override;
     bool is_NodeId() override;
@@ -204,7 +129,7 @@ class NodeId : public NodeExpr {
 };
 
 class NodeAddressOf : public NodeExpr {
-    public:
+public:
     NodeExpr* _expr;
     NodeAddressOf(NodeExpr* e);
     void codegen() override;
@@ -232,8 +157,8 @@ public:
     void codegen() override;
 };
 
-class NodeForStmt: public NodeStmt {
-    public:
+class NodeForStmt : public NodeStmt {
+public:
     static int counter;
     NodeStmt* Init;
     NodeStmt* Cond;
@@ -243,8 +168,8 @@ class NodeForStmt: public NodeStmt {
     NodeForStmt(NodeStmt* Init, NodeStmt* Cond, NodeExpr* Increment, NodeStmt* Body);
 };
 
-class NodeWhileStmt: public NodeStmt {
-    public:
+class NodeWhileStmt : public NodeStmt {
+public:
     static int counter;
     NodeExpr* _expr;
     NodeStmt* _stmt;
@@ -252,14 +177,14 @@ class NodeWhileStmt: public NodeStmt {
     void codegen() override;
 };
 
-class NodeNullStmt: public NodeStmt {
-    public:
+class NodeNullStmt : public NodeStmt {
+public:
     NodeNullStmt();
     void codegen() override;
 };
 
-class NodeBlockStmt: public NodeStmt {
-    public:
+class NodeBlockStmt : public NodeStmt {
+public:
     vector<NodeStmt*> stmt_list;
     NodeBlockStmt(vector<NodeStmt*> s);
     void codegen() override;
@@ -267,9 +192,9 @@ class NodeBlockStmt: public NodeStmt {
 
 class NodeFunctionDef : public Node {
 public:
-    std::string declspec;           // Function type (like int or void)
-    std::string declarator;         // Function name
-    NodeBlockStmt* body;            // Function body
+    std::string declspec;
+    std::string declarator;
+    NodeBlockStmt* body;
     vector<NodeDecl*> params;
 
     NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params);
@@ -279,11 +204,11 @@ public:
 
 class NodeProgram : public Node {
 public:
-    std::vector<NodeFunctionDef*> func_defs; // List of function definitions
+    std::vector<NodeFunctionDef*> func_defs;
 
     NodeProgram(std::vector<NodeFunctionDef*> func_defs);
 
-    void codegen() override; // Code generation for the entire program aka big papa
+    void codegen() override;
 };
 
 class NodeExprStmt : public NodeStmt {
@@ -291,11 +216,10 @@ public:
     NodeExpr* _expr;
     void codegen() override;
     NodeExprStmt(NodeExpr* e);
-
 };
 
 class NodeReturnStmt : public NodeStmt {
-    public:
+public:
     NodeExpr* _expr;
     NodeReturnStmt(NodeExpr* e);
     void codegen() override;
@@ -311,47 +235,44 @@ public:
 };
 
 class NodeAssign : public NodeBinOp {
-    public:
+public:
     void codegen() override;
     NodeAssign(NodeExpr* lhs, NodeExpr* rhs);
     bool is_NodeAssign() override;
 };
 
-class NodeLT : public NodeBinOp{
-    public:
+class NodeLT : public NodeBinOp {
+public:
     void codegen() override;
     NodeLT(NodeExpr* lhs, NodeExpr* rhs);
 };
 
-class NodeGT : public NodeBinOp{
-    public:
+class NodeGT : public NodeBinOp {
+public:
     void codegen() override;
     NodeGT(NodeExpr* lhs, NodeExpr* rhs);
-
 };
 
-class NodeLTE : public NodeBinOp{
-    public:
+class NodeLTE : public NodeBinOp {
+public:
     void codegen() override;
     NodeLTE(NodeExpr* lhs, NodeExpr* rhs);
-
 };
 
-class NodeGTE : public NodeBinOp{
-    public:
+class NodeGTE : public NodeBinOp {
+public:
     void codegen() override;
     NodeGTE(NodeExpr* lhs, NodeExpr* rhs);
-
 };
 
-class NodeEE : public NodeBinOp{
-    public:
+class NodeEE : public NodeBinOp {
+public:
     void codegen() override;
     NodeEE(NodeExpr* lhs, NodeExpr* rhs);
 };
-    
-class NodeNE : public NodeBinOp{
-    public:
+
+class NodeNE : public NodeBinOp {
+public:
     void codegen() override;
     NodeNE(NodeExpr* lhs, NodeExpr* rhs);
 };
@@ -360,33 +281,36 @@ class NodeAdd : public NodeBinOp {
 public:
     void codegen() override;
     NodeAdd(NodeExpr* lhs, NodeExpr* rhs);
-
 };
+
 class NodeSub : public NodeBinOp {
 public:
     void codegen() override;
     NodeSub(NodeExpr* lhs, NodeExpr* rhs);
 };
+
 class NodeMul : public NodeBinOp {
 public:
     void codegen() override;
     NodeMul(NodeExpr* lhs, NodeExpr* rhs);
 };
+
 class NodeDiv : public NodeBinOp {
 public:
     void codegen() override;
     NodeDiv(NodeExpr* lhs, NodeExpr* rhs);
 };
+
 class NodeNum : public NodeExpr {
-    public:
+public:
     int num_literal;
     NodeNum(int n);
     void codegen() override;
 };
+
 Node* abstract_parse();
+// END ABSTRACT SYNTAX TREE
 
-//END ABSTRACT SYNTAX TREE
-
-//START CODEGEN
+// START CODEGEN
 void do_codegen(Node* _expr);
-//END CODEGEN
+// END CODEGEN
