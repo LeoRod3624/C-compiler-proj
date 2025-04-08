@@ -359,26 +359,36 @@ static void emit_epilogue() {
 }
 
 void NodeFunctionDef::codegen() {
-    cout << ".global " << declarator << endl;
-    cout << declarator << ":" << endl;
     current_function = declarator;
 
-    emit_prologue();  // Emit prologue for this function
-    // Mapping arguments to local variables
+    cout << ".global " << declarator << endl;
+    cout << declarator << ":" << endl;
+
+    emit_prologue();
+
+    // Defensive parameter handling
     for (size_t i = 0; i < params.size(); ++i) {
-        int offset = var_map[current_function][params[i]->varName]->offSet;  // Get stack offset for the parameter
-        if (i < 8) {
-            emit_store_to_stack("x" + to_string(i), offset);  // Save to stack
-        } else {
-            // Handle spilled arguments
+        NodeDecl* param = params[i];
+        if (!param) {
+            cerr << "[ERROR] Null param at index " << i << " in function " << declarator << endl;
+            exit(1);
         }
+
+        const string& name = param->varName;
+        if (var_map[current_function].count(name) == 0) {
+            cerr << "[ERROR] Parameter '" << name << "' not found in var_map for function '" << current_function << "'" << endl;
+            exit(1);
+        }
+
+        int offset = var_map[current_function][name]->offSet;
+        if (i < 8) {
+            emit_store_to_stack("x" + to_string(i), offset);
+        }
+        // Skipping spill case (i >= 8) for now
     }
 
-    // Emit function body
-    if (body) {
-        body->codegen();
-    }
-    emit_epilogue();  // Emit epilogue for the function
+    if (body) body->codegen();
+    emit_epilogue();
 }
 
 void do_codegen(Node* root) {

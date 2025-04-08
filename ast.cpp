@@ -202,7 +202,14 @@ NodeAddressOf::NodeAddressOf(NodeExpr* e){
 NodeDereference::NodeDereference(NodeExpr* e) {
     _expr = e;
     _expr->parent = this;
-};
+
+    if (!e->c_type || !e->c_type->isPtrType()) {
+        cerr << "TYPECHECK: trying to dereference a non-pointer type" << endl;
+        exit(1);
+    }
+
+    c_type = ((CPtrType*)e->c_type)->referenced_type;
+}
 
 NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Init = s1;
@@ -260,30 +267,38 @@ NodeFunctionDef* func_def() {
     current_function = functionName;
     var_map[current_function] = map<string, object*>();
     object::counter = 0;
+
     assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
     tokens_i++; // Skip `(`
 
-    // Parse parameters
     vector<NodeDecl*> params;
     if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
         do {
-            // Parse parameter
             assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected parameter type");
             tokens_i++; // Skip `int`
+
+            int pointerDepth = 0;
+            while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*") {
+                pointerDepth++;
+                tokens_i++;
+            }
+
             assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
             std::string paramName = tokens[tokens_i++]->id;
-            params.push_back(new NodeDecl(paramName, 0, nullptr));
+
+            // Ensure NodeDecl inserts into var_map — by setting current_function BEFORE this
+            NodeDecl* paramDecl = new NodeDecl(paramName, pointerDepth, nullptr);
+            params.push_back(paramDecl);
         } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
     }
 
-    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')' for function parameters");
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
     tokens_i++; // Skip `)`
 
-    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{' to start function body");
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{'");
     tokens_i++; // Skip `{`
 
     NodeBlockStmt* body = block_stmt();
-
     return new NodeFunctionDef("int", functionName, body, params);
 }
 
