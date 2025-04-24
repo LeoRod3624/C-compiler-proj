@@ -5,6 +5,8 @@
 /*
 // Main program structure
 program = stmt*
+program = func-def*
+func-def = declspec declarator "{" block-stmt
 block-stmt = (declaration | stmt)* "}"
 stmt = "return" expr ";"
      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -15,6 +17,10 @@ stmt = "return" expr ";"
 declaration = declspec declarator ("=" expr)? ("," declarator ("=" expr)?)* ";"
 declspec = "int"
 declarator = "*"* id
+declarator = "*"* id type-suffix
+type-suffix = ("(" func-params? ")")? //doing func-defs without arguments, so for now we can use this rule
+func-params = param ("," param)*
+param       = declspec declarator
 expr-stmt = expr? ";"
 expr = assign
 assign = equality ("=" assign)?
@@ -30,7 +36,8 @@ id = <any string of id>
 */
 
 
-map<string, object*> var_map;
+map<string, map<string, object*>> var_map;
+string current_function = "";
 int object::counter = 0;
 NodeBlockStmt* block_stmt();
 NodeProgram* program();
@@ -53,6 +60,10 @@ object::object(){
 
 CType::~CType() {}
 
+NodeFunctionDef::NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params)
+    : declspec(std::move(declspec)), declarator(std::move(declarator)), body(body), params(std::move(params)) {}
+
+
 NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<NodeExpr*>& args) {
     this->functionName = functionName;
     this->args = args;
@@ -69,6 +80,7 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->pointerDepth = depth;
     this->initializer = init;
 
+    
     if (pointerDepth > 0) {
         c_type = new CPtrType(new CIntType());
         for (int i = 1; i < pointerDepth; ++i) {
@@ -77,7 +89,17 @@ NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     } else {
         c_type = new CIntType();
     }
-    var_map[varName]->c_type = c_type;
+
+    //SAFETY: skip var_map if current_function is unset
+    if (current_function.empty()) return;
+
+    if (var_map[current_function].count(varName)) {
+        cerr << "Variable already declared: " << varName << endl;
+        exit(1);
+    }
+    object* obj = new object();
+    obj->c_type = c_type;
+    var_map[current_function][varName] = obj;
 }
 
 NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
@@ -91,7 +113,7 @@ NodeBinOp::NodeBinOp(NodeExpr* l, NodeExpr* r, string p) {
 NodeAssign::NodeAssign(NodeExpr* _lhs, NodeExpr* _rhs) : NodeBinOp(_lhs, _rhs, "=") {
     if (lhs->is_NodeId()) {
         lhs->c_type = rhs->c_type;
-        var_map[((NodeId*)(lhs))->id]->c_type = lhs->c_type;
+        var_map[current_function][((NodeId*)(lhs))->id]->c_type = lhs->c_type;
     }
     c_type = rhs->c_type;
 }
@@ -180,7 +202,14 @@ NodeAddressOf::NodeAddressOf(NodeExpr* e){
 NodeDereference::NodeDereference(NodeExpr* e) {
     _expr = e;
     _expr->parent = this;
-};
+
+    if (!e->c_type || !e->c_type->isPtrType()) {
+        cerr << "TYPECHECK: trying to dereference a non-pointer type" << endl;
+        exit(1);
+    }
+
+    c_type = ((CPtrType*)e->c_type)->referenced_type;
+}
 
 NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Init = s1;
@@ -211,19 +240,16 @@ NodeBlockStmt::NodeBlockStmt(vector<NodeStmt*> _stmts){
     }
 }
 
-NodeProgram::NodeProgram(vector<NodeStmt*> _stmts){
-    stmts = _stmts;
-    for( NodeStmt* s:stmts){
-        s->parent = this;
-    }   
+NodeProgram::NodeProgram(std::vector<NodeFunctionDef*> func_defs) {
+    this->func_defs = std::move(func_defs);
 }
 
 NodeId::NodeId(std::string _id) : id(_id) {
-    if (var_map.find(id) == var_map.end()) {
+    if (var_map[current_function].find(id) == var_map[current_function].end()) {
         cerr << "Error: Variable '" << id << "' used without declaration." << endl;
         exit(1);
     }
-    c_type = var_map[id]->c_type;
+    c_type = var_map[current_function][id]->c_type;
 }
 
 NodeReturnStmt::NodeReturnStmt(NodeExpr* e) { 
@@ -231,13 +257,73 @@ NodeReturnStmt::NodeReturnStmt(NodeExpr* e) {
     _expr->parent = this;
 }
 
-NodeProgram* program() {
-    vector<NodeStmt*> stmts;
-    while(tokens[tokens_i]->kind != TK_EOF){
-        stmts.push_back(stmt());
+NodeFunctionDef* func_def() {
+    assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected a type specifier");
+    tokens_i++; // Skip `int`
+
+    assert(tokens[tokens_i]->kind == TK_ID && "Expected an identifier for the function name");
+    string functionName = tokens[tokens_i++]->id;
+
+    current_function = functionName;
+    var_map[current_function] = map<string, object*>();
+    object::counter = 0;
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after function name");
+    tokens_i++; // Skip `(`
+
+    vector<NodeDecl*> params;
+    if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
+        do {
+            assert(tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT && "Expected parameter type");
+            tokens_i++; // Skip `int`
+
+            int pointerDepth = 0;
+            while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "*") {
+                pointerDepth++;
+                tokens_i++;
+            }
+
+            assert(tokens[tokens_i]->kind == TK_ID && "Expected parameter name");
+            std::string paramName = tokens[tokens_i++]->id;
+
+            // Ensure NodeDecl inserts into var_map — by setting current_function BEFORE this
+            NodeDecl* paramDecl = new NodeDecl(paramName, pointerDepth, nullptr);
+            params.push_back(paramDecl);
+        } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
     }
-    NodeProgram* Node_Program = new NodeProgram(stmts);
-    return Node_Program;
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected closing ')'");
+    tokens_i++; // Skip `)`
+
+    assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{" && "Expected '{'");
+    tokens_i++; // Skip `{`
+
+    NodeBlockStmt* body = block_stmt();
+    return new NodeFunctionDef("int", functionName, body, params);
+}
+
+void reverse_offsets(const string& function_name) {
+    for (auto& pair : var_map[function_name]) {
+        int stackSize = 8 * var_map[function_name].size();
+        pair.second->offSet = stackSize - pair.second->offSet + 8;
+    }
+}
+
+NodeProgram* program() {
+    vector<NodeFunctionDef*> functions;
+
+    while (tokens[tokens_i]->kind != TK_EOF) {
+        if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
+            NodeFunctionDef* fn = func_def();
+            functions.push_back(fn);
+            reverse_offsets(fn->declarator);  // Important: use fn->declarator here
+        } else {
+            cerr << "Error: Unexpected token in program" << endl;
+            exit(1);
+        }
+    }
+
+    return new NodeProgram(functions);
 }
 
 NodeDeclList* declaration() {
@@ -261,15 +347,6 @@ NodeDeclList* declaration() {
             tokens_i++; // Consume '='
             initializer = expr();
         }
-
-        if (var_map.find(varName) != var_map.end()) {
-            cerr << "Error: Variable '" << varName << "' is already declared." << endl;
-            exit(1);
-        }
-
-        var_map[varName] = new object();
-        var_map[varName]->c_type = new CIntType();
-
         decls.push_back(new NodeDecl(varName, pointerDepth, initializer));
 
     } while (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "," && tokens_i++);
@@ -521,17 +598,10 @@ NodeExpr* add() {
     return result;
 }
 
-void reverse_offsets(){
-    for(auto pair : var_map){
-        int stackSize = 8*var_map.size();//keep in mind its 8 byte chunks of stack size;
-        pair.second->offSet = stackSize - pair.second->offSet + 8;
-    }   
-}
-
 Node* abstract_parse() {
-    object::counter=0;
+    object::counter = 0;
     NodeProgram* _program = program();
-    reverse_offsets();
+    // remove reverse_offsets() here
     return _program;
 }
 
