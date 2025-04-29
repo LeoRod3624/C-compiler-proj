@@ -212,4 +212,14 @@ assert 3 'int main() { int x = 0; if (1>0) { while (x < 3) { x = x + 1; } } retu
 assert 10 'int main() { int x = 0; int i = 0; if (1) { for (i = 0; i < 5; i = i + 1) { x = x + 2; } } return x; }'
 assert 2 'int main() { int z = 4; int sum = 0; int i = 0; for (i = 0; i < z; i = i + 1) { if (i == 0) { sum = sum + i;} if (i == 2) { sum = sum + i; } } return sum; }'
 
+assert 1 'int main() { return 2 - 1; }'
+assert 12 'int main() { return 3 * 4; }'
+assert 4 'int main() { return 8 / 2; }'
+assert 4 'int main() { int x = 6; int y = 2; return x - y; }'
+assert 18 'int main() { int x = 6; int y = 3; return x * y; }'
+assert 5 'int main() { int x = 10; int y = 2; return x / y; }'
+assert 24 'int main() { int x = 5; int y = 2; return (x + 3) * (y + 1); }'
+assert 2 'int main() { int x = 8; return x / (2 + 2); }'
+assert 0 'int main() { return 5 - 5; }'
+
 echo OK

@@ -98,6 +98,7 @@ public:
     virtual bool is_NodeDereference();
     virtual void emit_ir(IRGenerator& ir) = 0;
     Node* parent;
+    string result;
 };
 
 class NodeStmt : public Node {

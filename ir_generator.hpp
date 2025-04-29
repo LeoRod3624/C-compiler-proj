@@ -14,5 +14,9 @@ public:
     void emit_return(const std::string& value);
     void emit_cmp(const std::string& dest, const std::string& lhs, const std::string& rhs, const std::string& op);
 
+    std::string gen_sub(const std::string& lhs, const std::string& rhs);
+    std::string gen_mul(const std::string& lhs, const std::string& rhs);
+    std::string gen_div(const std::string& lhs, const std::string& rhs);
+
     void dump() const;
 };

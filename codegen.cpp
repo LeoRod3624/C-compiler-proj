@@ -180,6 +180,12 @@ void NodeSub::codegen(){
     }
 }
 
+void NodeSub::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = ir.gen_sub(lhs->result_var, rhs->result_var);
+}
+
 void NodeMul::codegen(){
     lhs->codegen();
     emit_push(accum_reg);
@@ -188,12 +194,24 @@ void NodeMul::codegen(){
     emit_mul();
 }
 
+void NodeMul::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = ir.gen_mul(lhs->result_var, rhs->result_var);
+}
+
 void NodeDiv::codegen(){
     lhs->codegen();
     emit_push(accum_reg);
     rhs->codegen();
     emit_pop(scratch_reg);
     emit_div();
+}
+
+void NodeDiv::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = ir.gen_div(lhs->result_var, rhs->result_var);
 }
 
 void NodeLT::codegen(){

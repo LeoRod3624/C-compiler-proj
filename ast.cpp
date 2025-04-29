@@ -2,6 +2,7 @@
 #include <cassert>  
 #include <map>
 #include <string>
+#include "ir_generator.hpp"
 /*
 // Main program structure
 program = stmt*
@@ -682,6 +683,3 @@ bool CPtrType::isPtrType(){
 void NodeAddressOf::emit_ir(IRGenerator&) {}
 void NodeDereference::emit_ir(IRGenerator&) {}
 void NodeFunctionCall::emit_ir(IRGenerator&) {}
-void NodeSub::emit_ir(IRGenerator&) {}
-void NodeMul::emit_ir(IRGenerator&) {}
-void NodeDiv::emit_ir(IRGenerator&) {}
