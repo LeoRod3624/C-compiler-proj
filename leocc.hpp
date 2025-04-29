@@ -6,6 +6,9 @@ using namespace std;
 
 // START TOKENIZER
 class Token;
+// Forward declare IRGenerator so we can use it in class declarations
+class IRGenerator;
+
 
 enum TokenKind {
     TK_NUM = 0,
@@ -20,7 +23,9 @@ enum KeywordKind {
     KW_RET,
     KW_WHILE,
     KW_FOR,
-    KW_INT
+    KW_INT,
+    KW_IF,      // <-- add this
+    KW_ELSE   
 };
 
 class Token {
@@ -85,23 +90,28 @@ extern string current_function;
 
 class Node {
 public:
+    virtual ~Node() {}
     virtual void codegen() = 0;
     virtual bool is_NodeId();
     virtual bool is_NodeAssign();
     virtual bool is_NodeAddressOf();
     virtual bool is_NodeDereference();
+    virtual void emit_ir(IRGenerator& ir) = 0;
     Node* parent;
 };
 
 class NodeStmt : public Node {
 public:
-    virtual void codegen() = 0;
+    virtual void codegen() override = 0;
+    virtual void emit_ir(IRGenerator& ir) override = 0;
 };
 
 class NodeExpr : public Node {
 public:
     CType* c_type = nullptr;
     virtual void codegen() = 0;
+    string result_var;  // For IR: holds the variable name assigned by this node
+    virtual void emit_ir(IRGenerator& ir) = 0;
 };
 
 class NodeFunctionCall : public NodeExpr {
@@ -109,6 +119,7 @@ public:
     string functionName;
     vector<NodeExpr*> args;
     NodeFunctionCall(const string& name, const vector<NodeExpr*>& args);
+    void emit_ir(IRGenerator& ir) override;
     void codegen() override;
 };
 
@@ -118,6 +129,7 @@ public:
     NodeDereference(NodeExpr* e);
     void codegen() override;
     bool is_NodeDereference() override;
+    void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeId : public NodeExpr {
@@ -125,6 +137,7 @@ public:
     string id;
     void codegen() override;
     bool is_NodeId() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeId(string);
 };
 
@@ -133,6 +146,7 @@ public:
     NodeExpr* _expr;
     NodeAddressOf(NodeExpr* e);
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     bool is_NodeAddressOf() override;
 };
 
@@ -146,6 +160,8 @@ public:
     NodeDecl(std::string name, int depth, NodeExpr* init = nullptr);
 
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
+
 };
 
 class NodeDeclList : public NodeStmt {
@@ -155,6 +171,7 @@ public:
     NodeDeclList(std::vector<NodeDecl*> decls);
 
     void codegen() override;
+    virtual void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeForStmt : public NodeStmt {
@@ -165,6 +182,7 @@ public:
     NodeExpr* Increment;
     NodeStmt* Body;
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeForStmt(NodeStmt* Init, NodeStmt* Cond, NodeExpr* Increment, NodeStmt* Body);
 };
 
@@ -175,12 +193,14 @@ public:
     NodeStmt* _stmt;
     NodeWhileStmt(NodeExpr* e, NodeStmt* s);
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeNullStmt : public NodeStmt {
 public:
     NodeNullStmt();
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeBlockStmt : public NodeStmt {
@@ -188,6 +208,7 @@ public:
     vector<NodeStmt*> stmt_list;
     NodeBlockStmt(vector<NodeStmt*> s);
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeFunctionDef : public Node {
@@ -200,6 +221,8 @@ public:
     NodeFunctionDef(std::string declspec, std::string declarator, NodeBlockStmt* body, vector<NodeDecl*> params);
 
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
+
 };
 
 class NodeProgram : public Node {
@@ -209,12 +232,15 @@ public:
     NodeProgram(std::vector<NodeFunctionDef*> func_defs);
 
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
+
 };
 
 class NodeExprStmt : public NodeStmt {
 public:
     NodeExpr* _expr;
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeExprStmt(NodeExpr* e);
 };
 
@@ -223,7 +249,26 @@ public:
     NodeExpr* _expr;
     NodeReturnStmt(NodeExpr* e);
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
 };
+
+class NodeIfStmt : public NodeStmt {
+public:
+    NodeExpr* condition;
+    NodeStmt* then_branch;
+    NodeStmt* else_branch;  // May be nullptr
+
+    NodeIfStmt(NodeExpr* cond, NodeStmt* then_stmt, NodeStmt* else_stmt)
+        : condition(cond), then_branch(then_stmt), else_branch(else_stmt) {
+        condition->parent = this;
+        then_branch->parent = this;
+        if (else_branch) else_branch->parent = this;
+    }
+
+    void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
+};
+
 
 class NodeBinOp : public NodeExpr {
 public:
@@ -238,60 +283,70 @@ class NodeAssign : public NodeBinOp {
 public:
     void codegen() override;
     NodeAssign(NodeExpr* lhs, NodeExpr* rhs);
+    void emit_ir(IRGenerator& ir) override;
     bool is_NodeAssign() override;
 };
 
 class NodeLT : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeLT(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeGT : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeGT(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeLTE : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeLTE(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeGTE : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeGTE(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeEE : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeEE(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeNE : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeNE(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeAdd : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeAdd(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeSub : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeSub(NodeExpr* lhs, NodeExpr* rhs);
 };
 
 class NodeMul : public NodeBinOp {
 public:
     void codegen() override;
+    void emit_ir(IRGenerator& ir) override;
     NodeMul(NodeExpr* lhs, NodeExpr* rhs);
 };
 
@@ -299,14 +354,19 @@ class NodeDiv : public NodeBinOp {
 public:
     void codegen() override;
     NodeDiv(NodeExpr* lhs, NodeExpr* rhs);
+    void emit_ir(IRGenerator& ir) override;
 };
 
 class NodeNum : public NodeExpr {
 public:
     int num_literal;
     NodeNum(int n);
+    void emit_ir(IRGenerator& ir) override;
+    ~NodeNum(); 
     void codegen() override;
 };
+
+
 
 Node* abstract_parse();
 // END ABSTRACT SYNTAX TREE

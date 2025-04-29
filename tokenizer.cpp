@@ -19,6 +19,14 @@ Token::Token(TokenKind k, string p)
             kind = TK_KW;
             kw_kind = KW_RET;
         }
+        else if(id == "if") {
+            kind = TK_KW;
+            kw_kind = KW_IF;
+        }
+        else if(id == "else") {
+            kind = TK_KW;
+            kw_kind = KW_ELSE;
+        }
         else if(id == "while"){
             kind = TK_KW;
             kw_kind = KW_WHILE;

@@ -1,7 +1,9 @@
 #include "leocc.hpp"
+#include "ir_generator.hpp"
 #include <cassert>
 int NodeWhileStmt::counter = 0;
 int NodeForStmt::counter = 0;
+static int tmp_counter = 0;
 static string return_reg = "x0";
 static string accum_reg = "x9"; 
 static string scratch_reg = "x10";
@@ -133,6 +135,13 @@ void NodeNum::codegen() {
     emit_move(accum_reg, to_string(num_literal));
 }
 
+NodeNum::~NodeNum() = default;
+
+void NodeNum::emit_ir(IRGenerator& ir) {
+    result_var = "imm_" + std::to_string(num_literal);
+    ir.emit_assign(result_var, std::to_string(num_literal));
+}
+
 void NodeAdd::codegen() {
     lhs->codegen();
     emit_push(accum_reg);  // Push the result of `lhs` to the stack
@@ -146,6 +155,13 @@ void NodeAdd::codegen() {
     emit_pop(scratch_reg);  // Pop the LHS value into the scratch register
     emit_add(accum_reg, accum_reg, scratch_reg);
 
+}
+
+void NodeAdd::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_add_" + std::to_string(tmp_counter++);
+    ir.emit_binop(result_var, lhs->result_var, rhs->result_var, "+");
 }
 
 void NodeSub::codegen(){
@@ -191,6 +207,13 @@ void NodeLT::codegen(){
     // cout << "  and x0, x0, #0x1" << endl;
 }
 
+void NodeLT::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_lt_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, "<");
+}
+
 void NodeGT::codegen(){
     lhs->codegen();
     emit_push(accum_reg);//cout << "  str x0, [sp, -16]!" << endl;
@@ -201,12 +224,26 @@ void NodeGT::codegen(){
     //cout << "  and x0, x0, #0x1" << endl;
 }
 
+void NodeGT::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_gt_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, ">");
+}
+
 void NodeLTE::codegen(){
     lhs->codegen();
     emit_push(accum_reg);
     rhs->codegen();
     emit_pop(scratch_reg);
     emit_lte();
+}
+
+void NodeLTE::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_lte_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, "<=");
 }
 
 void NodeGTE::codegen(){
@@ -217,12 +254,26 @@ void NodeGTE::codegen(){
     emit_gte();
 }
 
+void NodeGTE::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_gte_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, ">=");
+}
+
 void NodeEE::codegen(){
     lhs->codegen();
     emit_push(accum_reg);
     rhs->codegen();
     emit_pop(scratch_reg);
     emit_ee();
+}
+
+void NodeEE::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_eq_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, "==");
 }
 
 void NodeNE::codegen(){
@@ -233,6 +284,13 @@ void NodeNE::codegen(){
     emit_ne();
 }
 
+void NodeNE::emit_ir(IRGenerator& ir) {
+    lhs->emit_ir(ir);
+    rhs->emit_ir(ir);
+    result_var = "tmp_ne_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(result_var, lhs->result_var, rhs->result_var, "!=");
+}
+
 static NodeFunctionDef* current_func_def_codegen;
 void NodeProgram::codegen(){
     for (NodeFunctionDef* func_def : func_defs) {
@@ -241,8 +299,18 @@ void NodeProgram::codegen(){
     }
 }
 
+void NodeProgram::emit_ir(IRGenerator& ir) {
+    for (auto func_def : func_defs) {
+        func_def->emit_ir(ir);
+    }
+}
+
 void NodeExprStmt::codegen(){
     _expr->codegen();
+}
+
+void NodeExprStmt::emit_ir(IRGenerator& ir) {
+    _expr->emit_ir(ir);
 }
 
 void NodeAssign::codegen() {
@@ -253,6 +321,20 @@ void NodeAssign::codegen() {
     emit_store_to_memory(accum_reg, scratch_reg);  // Store the RHS value in the LHS address
     emit_move(accum_reg, scratch_reg);  // Move RHS value back to accum_reg
 }
+
+void NodeAssign::emit_ir(IRGenerator& ir) {
+    rhs->emit_ir(ir);
+    lhs->emit_ir(ir);
+
+    if (lhs->is_NodeDereference()) {
+        // lhs is a pointer being dereferenced
+        ir.emit_store(lhs->result_var, rhs->result_var);
+    } else {
+        // lhs is a regular variable
+        ir.emit_assign(lhs->result_var, rhs->result_var);
+    }
+}
+
 
 int round16(int n){
     if((n % 16) != 0){return (16-(n%16)) + n;}
@@ -268,9 +350,18 @@ void NodeId::codegen() {
     }
 }
 
+void NodeId::emit_ir(IRGenerator& ir) {
+    result_var = id;
+}
+
 void NodeReturnStmt::codegen() {
     _expr->codegen();          // Generate code for the return expression
     emit_jump(".L.return." + current_func_def_codegen->declarator);
+}
+
+void NodeReturnStmt::emit_ir(IRGenerator& ir) {
+    _expr->emit_ir(ir);
+    ir.emit_return(_expr->result_var);
 }
 
 void NodeForStmt::codegen() {
@@ -288,6 +379,12 @@ void NodeForStmt::codegen() {
     emit_label(after);  // Exit point
 }
 
+void NodeForStmt::emit_ir(IRGenerator& ir) {
+    if (Init) Init->emit_ir(ir);
+    if (Cond) Cond->emit_ir(ir);
+    if (Body) Body->emit_ir(ir);
+    if (Increment) Increment->emit_ir(ir);
+}
 
 void NodeWhileStmt::codegen() {
     string cond = ".L.WCOND_" + to_string(counter);
@@ -302,10 +399,20 @@ void NodeWhileStmt::codegen() {
     emit_label(after);  // Exit point
 }
 
+void NodeWhileStmt::emit_ir(IRGenerator& ir) {
+    if (_expr) _expr->emit_ir(ir);
+    if (_stmt) _stmt->emit_ir(ir);
+}
 
 void NodeBlockStmt::codegen(){
     for(NodeStmt* stmt : stmt_list) {
         stmt->codegen();
+    }
+}
+
+void NodeBlockStmt::emit_ir(IRGenerator& ir) {
+    for (auto stmt : stmt_list) {
+        stmt->emit_ir(ir);
     }
 }
 
@@ -314,6 +421,12 @@ void NodeDecl::codegen() {
         initializer->codegen();  // Generate code for the initializer expression
         int offset = var_map[current_function][varName]->offSet;
         emit_store_to_stack(accum_reg, offset);  // Store the value on the stack
+    }
+}
+
+void NodeDecl::emit_ir(IRGenerator& ir) {
+    if (initializer) {
+        initializer->emit_ir(ir);
     }
 }
 
@@ -339,6 +452,10 @@ void NodeFunctionCall::codegen() {
 
 void NodeNullStmt::codegen(){
     ;
+}
+
+void NodeNullStmt::emit_ir(IRGenerator& ir) {
+    // No IR needed for null statement
 }
 
 static void emit_prologue() {
@@ -391,7 +508,34 @@ void NodeFunctionDef::codegen() {
     emit_epilogue();
 }
 
+void NodeFunctionDef::emit_ir(IRGenerator& ir) {
+    if (body) {
+        body->emit_ir(ir);
+    }
+}
+
+void NodeIfStmt::codegen() {
+    string else_label = ".L.ELSE_" + to_string(tmp_counter++);
+    string end_label = ".L.END_" + to_string(tmp_counter++);
+
+    condition->codegen();          // Evaluate condition → x9
+    emit_cond_jump(else_branch ? else_label : end_label);
+
+    then_branch->codegen();       // Emit then body
+    emit_jump(end_label);         // Jump to end after then
+
+    if (else_branch) {
+        emit_label(else_label);   // Start of else
+        else_branch->codegen();   // Emit else body
+    }
+
+    emit_label(end_label);        // End of if
+}
+
+void NodeIfStmt::emit_ir(IRGenerator&) {
+    // IR for if will be implemented later.
+}
+
 void do_codegen(Node* root) {
     root->codegen();  // Generate code for the program's AST
 }
-

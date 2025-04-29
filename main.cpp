@@ -5,6 +5,8 @@
 #include <cassert>
 #include <list>
 #include "leocc.hpp"
+#include "ir.hpp"
+#include "ir_generator.hpp"
 
 using namespace std;
 
@@ -40,9 +42,15 @@ int main(int argc, char* argv[]){
     current_tok = tokens[tokens_i];
 
     Node* abstract_tree = abstract_parse();
-    
+
+    IRGenerator ir;
+    abstract_tree->emit_ir(ir);
+
+    std::cerr << "[DEBUG] Dumping IR:\n";
+    ir.dump();
+
+    // 🔁 Still perform codegen after
     do_codegen(abstract_tree);
-
-
+    
     return 0;
 }

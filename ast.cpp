@@ -39,6 +39,7 @@ id = <any string of id>
 map<string, map<string, object*>> var_map;
 string current_function = "";
 int object::counter = 0;
+int tmp_counter = 0;
 NodeBlockStmt* block_stmt();
 NodeProgram* program();
 NodeStmt* stmt();
@@ -74,6 +75,13 @@ NodeFunctionCall::NodeFunctionCall(const string& functionName, const vector<Node
 NodeDeclList::NodeDeclList(std::vector<NodeDecl*> decls) {
     this->decls = decls;
 }
+
+void NodeDeclList::emit_ir(IRGenerator& ir) {
+    for (auto decl : decls) {
+        decl->emit_ir(ir);
+    }
+}
+
 
 NodeDecl::NodeDecl(std::string name, int depth, NodeExpr* init) {
     this->varName = name;
@@ -366,6 +374,24 @@ NodeStmt* stmt() {
         tokens_i++;
         return result;
     } 
+    else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_IF) {
+        tokens_i++; // skip 'if'
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "(" && "Expected '(' after 'if'");
+        tokens_i++;
+        NodeExpr* condition = expr();
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after condition");
+        tokens_i++;
+
+        NodeStmt* then_stmt = stmt();  // 🛠️ THIS — allow any stmt, not just block
+
+        NodeStmt* else_stmt = nullptr;
+        if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_ELSE) {
+            tokens_i++;
+            else_stmt = stmt();   // 🛠️ THIS — allow any stmt
+        }
+
+        return new NodeIfStmt(condition, then_stmt, else_stmt);
+    } 
     else if (tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == "{") {
         tokens_i++;
         return block_stmt();
@@ -377,7 +403,7 @@ NodeStmt* stmt() {
         NodeExpr* condition = expr();
         assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after while condition");
         tokens_i++;
-        NodeStmt* body = stmt();
+        NodeStmt* body = stmt();  // 🛠️ allow simple stmt or block
         return new NodeWhileStmt(condition, body);
     } 
     else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_FOR) {
@@ -390,9 +416,9 @@ NodeStmt* stmt() {
         if (tokens[tokens_i]->kind != TK_PUNCT || tokens[tokens_i]->punct != ")") {
             increment = expr();
         }
-        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after for loop clauses");
+        assert(tokens[tokens_i]->kind == TK_PUNCT && tokens[tokens_i]->punct == ")" && "Expected ')' after for clauses");
         tokens_i++;
-        NodeStmt* body = stmt();
+        NodeStmt* body = stmt();  // 🛠️ allow simple stmt or block
         return new NodeForStmt(init, condition, increment, body);
     } 
     else if (tokens[tokens_i]->kind == TK_KW && tokens[tokens_i]->kw_kind == KW_INT) {
@@ -652,3 +678,10 @@ bool CType::isPtrType(){
 bool CPtrType::isPtrType(){
     return true;
 }
+
+void NodeAddressOf::emit_ir(IRGenerator&) {}
+void NodeDereference::emit_ir(IRGenerator&) {}
+void NodeFunctionCall::emit_ir(IRGenerator&) {}
+void NodeSub::emit_ir(IRGenerator&) {}
+void NodeMul::emit_ir(IRGenerator&) {}
+void NodeDiv::emit_ir(IRGenerator&) {}

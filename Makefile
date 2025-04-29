@@ -1,16 +1,27 @@
-CC=clang++
-WARNINGS='-Werror'
-CFLAGS=-std=c++11 -g -fno-common $(WARNINGS)
-leocc: main.cpp leocc.hpp cst.cpp ast.cpp codegen.cpp
-	$(CC) -o leocc *.cpp $(CFLAGS)
+CC = clang++
+WARNINGS = -Werror
+CFLAGS = -std=c++11 -g -fno-common $(WARNINGS)
+OBJDIR = build
+OBJS = $(OBJDIR)/main.o $(OBJDIR)/cst.o $(OBJDIR)/ast.o $(OBJDIR)/tokenizer.o $(OBJDIR)/codegen.o $(OBJDIR)/ir_generator.o
 
+# Default target
+leocc: $(OBJDIR) $(OBJS)
+	@echo -e "\033[1;32m[Linking]\033[0m leocc"
+	$(CC) $(CFLAGS) -o leocc $(OBJS)
 
+# Make sure build directory exists
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
+# Compile source files into object files
+$(OBJDIR)/%.o: %.cpp
+	@echo -e "\033[1;33m[Compiling]\033[0m $<"
+	$(CC) $(CFLAGS) -c $< -o $@
 
 test: leocc
-	./test.sh 
+	./test.sh
 
 clean:
-	rm -f leocc *.o *~ tmp* *.s
+	rm -rf leocc $(OBJDIR) *.s tmp*
 
-.PHONY: test clean 
+.PHONY: test clean
