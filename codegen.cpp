@@ -124,11 +124,22 @@ void NodeAddressOf::codegen() {
     _expr->codegen();
 }
 
+void NodeAddressOf::emit_ir(IRGenerator& ir) {
+    _expr->emit_ir(ir);
+    result_var = _expr->result_var;  // Simplified placeholder
+}
+
 void NodeDereference::codegen() {
     _expr->codegen();
     if (!parent->is_NodeAssign()) {
         emit_dereference(accum_reg);
     }
+}
+
+void NodeDereference::emit_ir(IRGenerator& ir) {
+    _expr->emit_ir(ir);
+    result_var = "tmp_deref_" + std::to_string(tmp_counter++);
+    ir.emit_load(result_var, _expr->result_var);
 }
 
 void NodeNum::codegen() {
@@ -351,6 +362,7 @@ void NodeAssign::emit_ir(IRGenerator& ir) {
         // lhs is a regular variable
         ir.emit_assign(lhs->result_var, rhs->result_var);
     }
+    result_var = rhs->result_var;
 }
 
 
@@ -468,6 +480,16 @@ void NodeFunctionCall::codegen() {
     emit_move(accum_reg, "x0");
 }
 
+void NodeFunctionCall::emit_ir(IRGenerator& ir) {
+    for (auto arg : args) {
+        arg->emit_ir(ir);  // Emit IR for each argument
+    }
+
+    // For now, we just simulate the call with a fake return var
+    result_var = "ret_" + functionName + "_" + std::to_string(tmp_counter++);
+    ir.emit_call(result_var, functionName, args);
+}
+
 void NodeNullStmt::codegen(){
     ;
 }
@@ -548,10 +570,6 @@ void NodeIfStmt::codegen() {
     }
 
     emit_label(end_label);        // End of if
-}
-
-void NodeIfStmt::emit_ir(IRGenerator&) {
-    // IR for if will be implemented later.
 }
 
 void do_codegen(Node* root) {

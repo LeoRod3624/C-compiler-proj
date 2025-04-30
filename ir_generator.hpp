@@ -3,6 +3,9 @@
 #include <vector>
 #include <string>
 
+class NodeExpr;
+class NodeStmt;
+
 class IRGenerator {
 public:
     std::vector<IRInstr> instructions;
@@ -13,6 +16,7 @@ public:
     void emit_store(const std::string& dest_ptr, const std::string& value);
     void emit_return(const std::string& value);
     void emit_cmp(const std::string& dest, const std::string& lhs, const std::string& rhs, const std::string& op);
+    void emit_call(const std::string& result_var, const std::string& function_name, const std::vector<NodeExpr*>& args);
 
     std::string gen_sub(const std::string& lhs, const std::string& rhs);
     std::string gen_mul(const std::string& lhs, const std::string& rhs);

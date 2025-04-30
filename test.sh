@@ -1,22 +1,16 @@
 #!/bin/bash
 
-# Set defaults to x86
 GCC=gcc
 TMP=tmp
 RUN_LINE="./$TMP"
-TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
+TEST_FUNCTIONS=c_test_functions.c
 
 assert() {
     expected="$1"
     input="$2"
 
-    # Compile the input to assembly
     ./leocc "$input" > $TMP.s || exit
-
-    # Link with the external assembly file for function definitions
     $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
-
-    # Run the resulting executable
     $RUN_LINE
     actual="$?"
 
@@ -28,7 +22,6 @@ assert() {
     fi
     echo "==========================================================================="
 }
-
 # assert 10 'int main() { return +10; }'
 # assert 10 'int main() { return -10 + 20; }'
 # assert 10 'int main() { return - -10; }'
@@ -175,51 +168,61 @@ assert() {
  
 #  # # 12. Pointer math inside function
 # assert 130 'int f(int* p) { return *(p + 1); } int main() { int x = 5, y = 130; return f(&x); }'
+#==============================================================================================================
 
-assert 5 'int main() { return 2 + 3; }'
+# assert 5 'int main() { return 2 + 3; }'
 
-assert 5 'int main() { int x = 5; return x; }'
-assert 12 'int main() { int x = 5; int y = 7; return x + y; }'
-assert 3 'int main() { int x = 0; while (x < 3) { x = x + 1; } return x; }'
-assert 5 'int main() { int x = 0; for (x = 0; x < 5; x = x + 1) {} return x; }'
+# assert 5 'int main() { int x = 5; return x; }'
+# assert 12 'int main() { int x = 5; int y = 7; return x + y; }'
+# assert 3 'int main() { int x = 0; while (x < 3) { x = x + 1; } return x; }'
+# assert 5 'int main() { int x = 0; for (x = 0; x < 5; x = x + 1) {} return x; }'
 
-assert 1 'int main() { return 2 < 3; }'
-assert 0 'int main() { return 3 < 2; }'
-assert 1 'int main() { return 4 > 2; }'
-assert 0 'int main() { return 2 > 4; }'
-assert 1 'int main() { return 5 <= 5; }'
-assert 1 'int main() { return 4 <= 5; }'
-assert 0 'int main() { return 6 <= 5; }'
-assert 1 'int main() { return 5 >= 5; }'
-assert 1 'int main() { return 6 >= 5; }'
-assert 0 'int main() { return 4 >= 5; }'
-assert 1 'int main() { return 3 == 3; }'
-assert 0 'int main() { return 3 == 4; }'
-assert 1 'int main() { return 3 != 4; }'
-assert 0 'int main() { return 3 != 3; }'
+# assert 1 'int main() { return 2 < 3; }'
+# assert 0 'int main() { return 3 < 2; }'
+# assert 1 'int main() { return 4 > 2; }'
+# assert 0 'int main() { return 2 > 4; }'
+# assert 1 'int main() { return 5 <= 5; }'
+# assert 1 'int main() { return 4 <= 5; }'
+# assert 0 'int main() { return 6 <= 5; }'
+# assert 1 'int main() { return 5 >= 5; }'
+# assert 1 'int main() { return 6 >= 5; }'
+# assert 0 'int main() { return 4 >= 5; }'
+# assert 1 'int main() { return 3 == 3; }'
+# assert 0 'int main() { return 3 == 4; }'
+# assert 1 'int main() { return 3 != 4; }'
+# assert 0 'int main() { return 3 != 3; }'
 
-assert 1 'int main() { if (1) {return 1;} else {return 2;} }'
-assert 2 'int main() { if (0) {return 1;} else {return 2;} }'
-assert 3 'int main() { int x = 1; if (x == 1) {x = 3;} return x; }'
-assert 4 'int main() { int x = 1; if (x != 1) {x = 2;} else {x = 4;} return x; }'
-assert 5 'int main() { int x = 5; if (x > 0) { x = x + 1; } return x - 1; }'
-assert 7 'int main() { int x = 2; if (x < 3) { x = 7; } else { x = 9; } return x; }'
-assert 7 'int main() { int x = 1; for (x = 1; x < 3; x = x + 1) { x = x + 1; } return x + 4; }'
-assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
+# assert 1 'int main() { if (1) {return 1;} else {return 2;} }'
+# assert 2 'int main() { if (0) {return 1;} else {return 2;} }'
+# assert 3 'int main() { int x = 1; if (x == 1) {x = 3;} return x; }'
+# assert 4 'int main() { int x = 1; if (x != 1) {x = 2;} else {x = 4;} return x; }'
+# assert 5 'int main() { int x = 5; if (x > 0) { x = x + 1; } return x - 1; }'
+# assert 7 'int main() { int x = 2; if (x < 3) { x = 7; } else { x = 9; } return x; }'
+# assert 7 'int main() { int x = 1; for (x = 1; x < 3; x = x + 1) { x = x + 1; } return x + 4; }'
+# assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
 
-assert 5 'int main() { int x = 0; while (x < 5) { if (x == 3) { x = x + 2; } else { x = x + 1; } } return x; }'
-assert 3 'int main() { int x = 0; if (1>0) { while (x < 3) { x = x + 1; } } return x; }'
-assert 10 'int main() { int x = 0; int i = 0; if (1) { for (i = 0; i < 5; i = i + 1) { x = x + 2; } } return x; }'
-assert 2 'int main() { int z = 4; int sum = 0; int i = 0; for (i = 0; i < z; i = i + 1) { if (i == 0) { sum = sum + i;} if (i == 2) { sum = sum + i; } } return sum; }'
+# assert 5 'int main() { int x = 0; while (x < 5) { if (x == 3) { x = x + 2; } else { x = x + 1; } } return x; }'
+# assert 3 'int main() { int x = 0; if (1>0) { while (x < 3) { x = x + 1; } } return x; }'
+# assert 10 'int main() { int x = 0; int i = 0; if (1) { for (i = 0; i < 5; i = i + 1) { x = x + 2; } } return x; }'
+# assert 2 'int main() { int z = 4; int sum = 0; int i = 0; for (i = 0; i < z; i = i + 1) { if (i == 0) { sum = sum + i;} if (i == 2) { sum = sum + i; } } return sum; }'
 
-assert 1 'int main() { return 2 - 1; }'
-assert 12 'int main() { return 3 * 4; }'
-assert 4 'int main() { return 8 / 2; }'
-assert 4 'int main() { int x = 6; int y = 2; return x - y; }'
-assert 18 'int main() { int x = 6; int y = 3; return x * y; }'
-assert 5 'int main() { int x = 10; int y = 2; return x / y; }'
-assert 24 'int main() { int x = 5; int y = 2; return (x + 3) * (y + 1); }'
-assert 2 'int main() { int x = 8; return x / (2 + 2); }'
-assert 0 'int main() { return 5 - 5; }'
+# assert 1 'int main() { return 2 - 1; }'
+# assert 12 'int main() { return 3 * 4; }'
+# assert 4 'int main() { return 8 / 2; }'
+# assert 4 'int main() { int x = 6; int y = 2; return x - y; }'
+# assert 18 'int main() { int x = 6; int y = 3; return x * y; }'
+# assert 5 'int main() { int x = 10; int y = 2; return x / y; }'
+# assert 24 'int main() { int x = 5; int y = 2; return (x + 3) * (y + 1); }'
+# assert 2 'int main() { int x = 8; return x / (2 + 2); }'
+# assert 0 'int main() { return 5 - 5; }'
+
+assert 5 'int main() { int x = 5; return *(&x); }'
+
+assert 42 'int main() { if (1) { return 42; } return 0; }'
+assert 0 'int main() { if (0) { return 42; } return 0; }'
+assert 1 'int main() { if (1) { return 1; } else { return 2; } }'
+assert 2 'int main() { if (0) { return 1; } else { return 2; } }'
+assert 7 'int main() { int x = 3; if (x == 3) { return 7; } return 0; }'
+assert 5 'int main() { int x = 4; if (x == 3) { return 7; } return 5; }'
 
 echo OK

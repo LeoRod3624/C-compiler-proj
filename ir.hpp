@@ -9,7 +9,10 @@ enum class IRKind {
     Store,
     BinOp,
     Return,
-    Cmp  // ← Added Cmp kind
+    Cmp,
+    BranchIfZero,
+    Jump,
+    Label
 };
 
 struct IRInstr {
@@ -38,6 +41,15 @@ struct IRInstr {
                 break;
             case IRKind::Return:
                 os << "return " << op1 << ";\n";
+                break;
+            case IRKind::BranchIfZero:
+                os << "ifnot " << op1 << " goto " << dest << ";\n";
+                break;
+            case IRKind::Jump:
+                os << "goto " << dest << ";\n";
+                break;
+            case IRKind::Label:
+                os << dest << ":\n";
                 break;
         }
     }

@@ -680,6 +680,3 @@ bool CPtrType::isPtrType(){
     return true;
 }
 
-void NodeAddressOf::emit_ir(IRGenerator&) {}
-void NodeDereference::emit_ir(IRGenerator&) {}
-void NodeFunctionCall::emit_ir(IRGenerator&) {}
