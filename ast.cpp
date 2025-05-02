@@ -180,7 +180,7 @@ NodeLT::NodeLT(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "<"){
 }
 
 NodeNE::NodeNE(NodeExpr* l, NodeExpr* r) : NodeBinOp(l, r, "!="){
-    //c_type = new CIntType();
+    c_type = new CIntType();
 }
 
 NodeExprStmt::NodeExprStmt(NodeExpr* e){

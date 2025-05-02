@@ -12,15 +12,16 @@ enum class IRKind {
     Cmp,
     BranchIfZero,
     Jump,
-    Label
+    Label,
+    Call
 };
 
 struct IRInstr {
     IRKind kind;
-    std::string dest;
-    std::string op1;
-    std::string op2;
-    std::string binop;
+    std::string dest;// Target variable or label
+    std::string op1;// LHS or value (or condition variable)
+    std::string op2;// RHS (used in binops and comparisons)
+    std::string binop;// Operator symbol or arg list (for Call)
 
     void print(std::ostream& os) const {
         switch (kind) {
@@ -43,13 +44,17 @@ struct IRInstr {
                 os << "return " << op1 << ";\n";
                 break;
             case IRKind::BranchIfZero:
-                os << "ifnot " << op1 << " goto " << dest << ";\n";
+                os << "if (" << op1 << " == 0) goto " << dest << ";\n";
                 break;
             case IRKind::Jump:
                 os << "goto " << dest << ";\n";
                 break;
             case IRKind::Label:
                 os << dest << ":\n";
+                break;
+            case IRKind::Call:
+                os << dest << " = call " << op1 << "(\"" << binop << "\");\n";
+
                 break;
         }
     }

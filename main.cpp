@@ -43,11 +43,11 @@ int main(int argc, char* argv[]){
 
     Node* abstract_tree = abstract_parse();
 
-    IRGenerator ir;
-    abstract_tree->emit_ir(ir);
+    //IRGenerator ir;
+    //abstract_tree->emit_ir(ir);
 
-    std::cerr << "[DEBUG] Dumping IR:\n";
-    ir.dump();
+    //std::cerr << "[DEBUG] Dumping IR:\n";
+    //ir.dump();
 
     // 🔁 Still perform codegen after
     do_codegen(abstract_tree);

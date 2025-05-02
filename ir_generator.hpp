@@ -17,6 +17,9 @@ public:
     void emit_return(const std::string& value);
     void emit_cmp(const std::string& dest, const std::string& lhs, const std::string& rhs, const std::string& op);
     void emit_call(const std::string& result_var, const std::string& function_name, const std::vector<NodeExpr*>& args);
+    void emit_label(const std::string& label);
+    void emit_jump(const std::string& label);
+    void emit_branch_if_zero(const std::string& cond_var, const std::string& label);
 
     std::string gen_sub(const std::string& lhs, const std::string& rhs);
     std::string gen_mul(const std::string& lhs, const std::string& rhs);

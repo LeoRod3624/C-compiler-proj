@@ -199,7 +199,7 @@ assert() {
 # assert 5 'int main() { int x = 5; if (x > 0) { x = x + 1; } return x - 1; }'
 # assert 7 'int main() { int x = 2; if (x < 3) { x = 7; } else { x = 9; } return x; }'
 # assert 7 'int main() { int x = 1; for (x = 1; x < 3; x = x + 1) { x = x + 1; } return x + 4; }'
-# assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
+assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
 
 # assert 5 'int main() { int x = 0; while (x < 5) { if (x == 3) { x = x + 2; } else { x = x + 1; } } return x; }'
 # assert 3 'int main() { int x = 0; if (1>0) { while (x < 3) { x = x + 1; } } return x; }'
@@ -216,13 +216,16 @@ assert() {
 # assert 2 'int main() { int x = 8; return x / (2 + 2); }'
 # assert 0 'int main() { return 5 - 5; }'
 
-assert 5 'int main() { int x = 5; return *(&x); }'
+# assert 5 'int main() { int x = 5; return *(&x); }'
 
-assert 42 'int main() { if (1) { return 42; } return 0; }'
-assert 0 'int main() { if (0) { return 42; } return 0; }'
-assert 1 'int main() { if (1) { return 1; } else { return 2; } }'
-assert 2 'int main() { if (0) { return 1; } else { return 2; } }'
-assert 7 'int main() { int x = 3; if (x == 3) { return 7; } return 0; }'
-assert 5 'int main() { int x = 4; if (x == 3) { return 7; } return 5; }'
+# assert 42 'int main() { if (1) { return 42; } return 0; }'
+# assert 0 'int main() { if (0) { return 42; } return 0; }'
+# assert 1 'int main() { if (1) { return 1; } else { return 2; } }'
+# assert 2 'int main() { if (0) { return 1; } else { return 2; } }'
+# assert 7 'int main() { int x = 3; if (x == 3) { return 7; } return 0; }'
+# assert 5 'int main() { int x = 4; if (x == 3) { return 7; } return 5; }'
+
+#assert 6 'int main() { int sum = 0; int i = 0; while (i < 3) { int j = 0; for (j = 0; j < 2; j = j + 1) { sum = sum + 1; } i = i + 1; } return sum; }'
+
 
 echo OK

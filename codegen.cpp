@@ -96,10 +96,6 @@ static void emit_function_call(const string& function_name) {
     cout << "  bl " << function_name << endl;
 }
 
-static void emit_stack_push(const string& reg) {
-    cout << "  str " << reg << ", [sp, -16]!" << endl;
-}
-
 static void emit_add_to_fp(const string& dest_reg, int offset) {
     cout << "  add " << dest_reg << ", fp, -" << offset << endl;
 }
@@ -410,10 +406,33 @@ void NodeForStmt::codegen() {
 }
 
 void NodeForStmt::emit_ir(IRGenerator& ir) {
+    std::string cond_label = "L_for_cond_" + std::to_string(counter);
+    std::string after_label = "L_for_after_" + std::to_string(counter++);
+    
     if (Init) Init->emit_ir(ir);
-    if (Cond) Cond->emit_ir(ir);
+
+    ir.emit_label(cond_label);
+
+
+    std::string cond_result = "";
+    if (Cond) {
+        NodeExprStmt* condExprStmt = dynamic_cast<NodeExprStmt*>(Cond);
+        if (condExprStmt && condExprStmt->_expr) {
+            condExprStmt->_expr->emit_ir(ir);
+            cond_result = condExprStmt->_expr->result_var;
+        }
+    }
+
+    if (!cond_result.empty()) {
+        ir.emit_branch_if_zero(cond_result, after_label);
+
+    }
+
     if (Body) Body->emit_ir(ir);
     if (Increment) Increment->emit_ir(ir);
+
+    ir.emit_jump(cond_label);
+    ir.emit_label(after_label);
 }
 
 void NodeWhileStmt::codegen() {
@@ -430,8 +449,21 @@ void NodeWhileStmt::codegen() {
 }
 
 void NodeWhileStmt::emit_ir(IRGenerator& ir) {
-    if (_expr) _expr->emit_ir(ir);
-    if (_stmt) _stmt->emit_ir(ir);
+    std::string loop_label = "L_while_loop_" + std::to_string(counter);
+    std::string after_label = "L_while_after_" + std::to_string(counter++);
+    
+    ir.emit_label(loop_label);
+
+
+    _expr->emit_ir(ir);
+    ir.emit_branch_if_zero(_expr->result_var, after_label);
+
+
+    _stmt->emit_ir(ir);
+    ir.emit_jump(loop_label);
+
+    ir.emit_label(after_label);
+
 }
 
 void NodeBlockStmt::codegen(){
@@ -571,6 +603,34 @@ void NodeIfStmt::codegen() {
 
     emit_label(end_label);        // End of if
 }
+
+void NodeIfStmt::emit_ir(IRGenerator& ir) {
+    condition->emit_ir(ir);
+    std::string cond_var = condition->result_var;
+
+    std::string else_label = "L_else_" + std::to_string(tmp_counter++);
+    std::string end_label = "L_end_" + std::to_string(tmp_counter++);
+
+    // Compare cond_var to 0 and emit a conditional branch
+    std::string cmp_tmp = "tmp_eq_" + std::to_string(tmp_counter++);
+    ir.emit_cmp(cmp_tmp, cond_var, "0", "==");
+    ir.emit_branch_if_zero(cmp_tmp, else_label);
+
+
+    // Emit then branch
+    then_branch->emit_ir(ir);
+    ir.emit_jump(end_label);
+
+
+    // Else branch
+    ir.emit_label(else_label);
+    if (else_branch) {
+        else_branch->emit_ir(ir);
+    }
+
+    ir.emit_label(end_label);
+}
+
 
 void do_codegen(Node* root) {
     root->codegen();  // Generate code for the program's AST

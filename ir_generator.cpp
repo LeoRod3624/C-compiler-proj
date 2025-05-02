@@ -64,26 +64,18 @@ void IRGenerator::emit_call(const string& result_var, const string& function_nam
         if (i > 0) args_list += ", ";
         args_list += args[i]->result_var;
     }
-    cout << result_var << " = call " << function_name << "(" << args_list << ");" << endl;
+    instructions.push_back({IRKind::Call, result_var, function_name, "", args_list});
 }
 
-// 🔽 Add this to your NodeIfStmt::emit_ir in leocc.cpp or ast.cpp:
-void NodeIfStmt::emit_ir(IRGenerator& ir) {
-    condition->emit_ir(ir);
-    std::string cond_var = condition->result_var;
-    std::string else_label = "L_else_" + std::to_string(tmp_counter++);
-    std::string end_label = "L_end_" + std::to_string(tmp_counter++);
-
-    // Emit conditional jump instruction (simulated as comment here)
-    cerr << "if (" << cond_var << " == 0) goto " << else_label << ";" << endl;
-
-    then_branch->emit_ir(ir);
-    cerr << "goto " << end_label << ";" << endl;
-
-    cerr << else_label << ":" << endl;
-    if (else_branch) {
-        else_branch->emit_ir(ir);
-    }
-
-    cerr << end_label << ":" << endl;
+void IRGenerator::emit_label(const std::string& label) {
+    instructions.push_back({IRKind::Label, label, "", "", ""});
 }
+
+void IRGenerator::emit_jump(const std::string& label) {
+    instructions.push_back({IRKind::Jump, label, "", "", ""});
+}
+
+void IRGenerator::emit_branch_if_zero(const std::string& cond_var, const std::string& label) {
+    instructions.push_back({IRKind::BranchIfZero, label, cond_var, "", ""});
+}
+
