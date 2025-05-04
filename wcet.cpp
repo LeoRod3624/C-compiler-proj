@@ -41,6 +41,40 @@ int extract_loop_bound(Node* root, const std::string& loop_id) {
     return 1;
 }
 
+int extract_for_loop_iterations(Node* root, const std::string& loop_id) {
+    if (auto* prog = dynamic_cast<NodeProgram*>(root)) {
+        for (auto* fn : prog->func_defs) {
+            for (auto* stmt : fn->body->stmt_list) {
+                if (auto* for_stmt = dynamic_cast<NodeForStmt*>(stmt)) {
+                    auto* cond_stmt = dynamic_cast<NodeExprStmt*>(for_stmt->Cond);
+                    auto* cmp = cond_stmt ? dynamic_cast<NodeBinOp*>(cond_stmt->_expr) : nullptr;
+                    if (!cmp || cmp->punct != "<") continue;
+
+                    auto* rhs = dynamic_cast<NodeNum*>(cmp->rhs);
+                    if (!rhs) continue;
+                    int end = rhs->num_literal;
+
+                    auto* init_stmt = dynamic_cast<NodeExprStmt*>(for_stmt->Init);
+                    auto* init_assign = init_stmt ? dynamic_cast<NodeAssign*>(init_stmt->_expr) : nullptr;
+                    auto* start_num = init_assign ? dynamic_cast<NodeNum*>(init_assign->rhs) : nullptr;
+                    if (!start_num) continue;
+                    int start = start_num->num_literal;
+
+                    auto* inc_assign = dynamic_cast<NodeAssign*>(for_stmt->Increment);
+                    auto* add_expr = inc_assign ? dynamic_cast<NodeAdd*>(inc_assign->rhs) : nullptr;
+                    auto* step_rhs = add_expr ? dynamic_cast<NodeNum*>(add_expr->rhs) : nullptr;
+                    if (!step_rhs) continue;
+                    int step = step_rhs->num_literal;
+
+                    if (step == 0) return 1;
+                    return (end - start) / step;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
 int analyze_loop(const std::vector<IRInstr>& instrs,
                  const std::map<std::string, size_t>& label_map,
                  size_t loop_start_idx, Node* root) {
@@ -71,7 +105,10 @@ int analyze_loop(const std::vector<IRInstr>& instrs,
         }
     }
 
-    int bound = extract_loop_bound(root, loop_id);
+    int bound = (instrs[loop_start_idx].dest.find("while") != std::string::npos)
+                ? extract_loop_bound(root, loop_id)
+                : extract_for_loop_iterations(root, loop_id);
+
     return bound * body_cost;
 }
 
@@ -88,19 +125,21 @@ int analyze_wcet(Node* root, const IRGenerator& ir) {
     for (size_t i = 0; i < instrs.size(); ++i) {
         const auto& instr = instrs[i];
         if (instr.kind == IRKind::Label &&
-            (instr.dest.find("L_while_loop_") != std::string::npos ||
-             instr.dest.find("L_for_cond_") != std::string::npos)) {
+           (instr.dest.find("L_while_loop_") != std::string::npos ||
+            instr.dest.find("L_for_cond_") != std::string::npos)) {
             total_cycles += analyze_loop(instrs, label_map, i, root);
             std::string id = instr.dest.substr(instr.dest.find_last_of('_') + 1);
-            std::string after_label = (instr.dest.find("while") != std::string::npos)
-                                        ? "L_while_after_" + id
-                                        : "L_for_after_" + id;
-            i = label_map.at(after_label);
+            std::string after_label = instr.dest.find("while") != std::string::npos
+                                      ? "L_while_after_" + id
+                                      : "L_for_after_" + id;
+            if (label_map.count(after_label)) {
+                i = label_map.at(after_label); // Skip ahead
+            }
         } else {
             total_cycles += compute_instr_cost(instr.kind);
         }
     }
 
-    std::cerr << "[WCET] Cycles: " << total_cycles << std::endl;  // <-- Restore this line
+    std::cerr << "[WCET] Cycles: " << total_cycles << std::endl;
     return total_cycles;
 }
