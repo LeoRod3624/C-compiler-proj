@@ -7,6 +7,7 @@
 #include "leocc.hpp"
 #include "ir.hpp"
 #include "ir_generator.hpp"
+#include "wcet.hpp"
 
 using namespace std;
 
@@ -43,13 +44,16 @@ int main(int argc, char* argv[]){
 
     Node* abstract_tree = abstract_parse();
 
-    //IRGenerator ir;
-    //abstract_tree->emit_ir(ir);
+    IRGenerator ir;
+    abstract_tree->emit_ir(ir);
 
-    //std::cerr << "[DEBUG] Dumping IR:\n";
-    //ir.dump();
+    std::cerr << "[DEBUG] Dumping IR:\n";
+    ir.dump();
 
     // 🔁 Still perform codegen after
+    int cycles = analyze_wcet(abstract_tree, ir);
+    
+
     do_codegen(abstract_tree);
     
     return 0;

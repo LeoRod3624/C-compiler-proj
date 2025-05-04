@@ -199,7 +199,7 @@ assert() {
 # assert 5 'int main() { int x = 5; if (x > 0) { x = x + 1; } return x - 1; }'
 # assert 7 'int main() { int x = 2; if (x < 3) { x = 7; } else { x = 9; } return x; }'
 # assert 7 'int main() { int x = 1; for (x = 1; x < 3; x = x + 1) { x = x + 1; } return x + 4; }'
-assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
+
 
 # assert 5 'int main() { int x = 0; while (x < 5) { if (x == 3) { x = x + 2; } else { x = x + 1; } } return x; }'
 # assert 3 'int main() { int x = 0; if (1>0) { while (x < 3) { x = x + 1; } } return x; }'
@@ -225,7 +225,29 @@ assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
 # assert 7 'int main() { int x = 3; if (x == 3) { return 7; } return 0; }'
 # assert 5 'int main() { int x = 4; if (x == 3) { return 7; } return 5; }'
 
-#assert 6 'int main() { int sum = 0; int i = 0; while (i < 3) { int j = 0; for (j = 0; j < 2; j = j + 1) { sum = sum + 1; } i = i + 1; } return sum; }'
+# assert 6 'int main() { int sum = 0; int i = 0; while (i < 3) { int j = 0; for (j = 0; j < 2; j = j + 1) { sum = sum + 1; } i = i + 1; } return sum; }'
+# assert 40 'int main() {int x = 10;int sum = 0;while (x > 5) {sum = sum + x;x = x - 1;}return sum;}'
+
+# assert 3 'int main() { int i = 0; while (i < 3) { i = i + 1; } return i; }'
+# assert 5 'int main() { int i = 0; while (i < 5) { i = i + 1; } return i; }'
+# assert 4 'int main() { int i = 0; while (i < 4) { int a = 0; i = i + 1; } return i; }'
+# assert 5 'int main() { int i = 5; while (i < 3) { i = i + 1; } return i; }'
+
+assert 5 'int main() { int i = 0; while (i < 5) { if (i == 4) i = i + 1; else i = i + 1; } return i; }'
+#// Loop increments i until i == 5, so returns 5 (5 iterations total), but hits 4 only once and increments again → total: 4 → then one final → 5
+
+assert 5 'int main() { int i = 0; while (i < 5) { i = i + 1; } return i; }'
+#// Straightforward loop 5 times → returns 5
+
+assert 5 'int main() { int i = 0; while (i < 5) { i = i + 1; if (i == 4) i = i + 1; } return i; }'
+#// i = 0 → 1 → 2 → 3 → 4 → hits i==4 → i becomes 5 → exits → returns 5
+
+assert 6 'int main() { int i = 0; while (i < 5) { i = i + 1; i = i + 1; } return i; }'
+#// i = 0 → 2 → 4 → 6 → exits after 3 iterations with steps of 2 → returns 6
+
+
+
+
 
 
 echo OK

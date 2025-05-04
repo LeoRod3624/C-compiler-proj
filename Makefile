@@ -2,7 +2,7 @@ CC = clang++
 WARNINGS = -Werror
 CFLAGS = -std=c++11 -g -fno-common $(WARNINGS)
 OBJDIR = build
-OBJS = $(OBJDIR)/main.o $(OBJDIR)/cst.o $(OBJDIR)/ast.o $(OBJDIR)/tokenizer.o $(OBJDIR)/codegen.o $(OBJDIR)/ir_generator.o
+OBJS = $(OBJDIR)/main.o $(OBJDIR)/cst.o $(OBJDIR)/ast.o $(OBJDIR)/tokenizer.o $(OBJDIR)/codegen.o $(OBJDIR)/ir_generator.o $(OBJDIR)/wcet.o
 
 # Default target
 leocc: $(OBJDIR) $(OBJS)
