@@ -234,16 +234,12 @@ assert() {
 # assert 5 'int main() { int i = 5; while (i < 3) { i = i + 1; } return i; }'
 
 assert 5 'int main() { int i = 0; while (i < 5) { if (i == 4) i = i + 1; else i = i + 1; } return i; }'
-#// Loop increments i until i == 5, so returns 5 (5 iterations total), but hits 4 only once and increments again → total: 4 → then one final → 5
 
 assert 5 'int main() { int i = 0; while (i < 5) { i = i + 1; } return i; }'
-#// Straightforward loop 5 times → returns 5
 
 assert 5 'int main() { int i = 0; while (i < 5) { i = i + 1; if (i == 4) i = i + 1; } return i; }'
-#// i = 0 → 1 → 2 → 3 → 4 → hits i==4 → i becomes 5 → exits → returns 5
 
 assert 6 'int main() { int i = 0; while (i < 5) { i = i + 1; i = i + 1; } return i; }'
-#// i = 0 → 2 → 4 → 6 → exits after 3 iterations with steps of 2 → returns 6
 
 
 
