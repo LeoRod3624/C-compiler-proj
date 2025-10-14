@@ -1,5 +1,8 @@
 #include "leocc.hpp"
 #include <cassert>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRBuilder.h>
+#include <fstream>
 int NodeWhileStmt::counter = 0;
 int NodeForStmt::counter = 0;
 static string return_reg = "x0";
@@ -391,7 +394,34 @@ void NodeFunctionDef::codegen() {
     emit_epilogue();
 }
 
+void build_LLVM_IR(llvm::Module* module, llvm::IRBuilder<>* llvmBuilder) {
+    // Placeholder for LLVM IR generation logic
+    // This function should traverse the AST and generate LLVM IR using the provided module
+    module->getOrInsertFunction("main", llvm::FunctionType::get(llvm::Type::getInt32Ty(module->getContext()), false));
+    llvm::Function* mainFunc = module->getFunction("main");
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(module->getContext(), "entry", mainFunc);
+    llvmBuilder->SetInsertPoint(entry);
+    llvmBuilder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(module->getContext()), 7));
+}
+
 void do_codegen(Node* root) {
-    root->codegen();  // Generate code for the program's AST
+    // root->codegen();  // Generate code for the program's AST
+    llvm::LLVMContext* llvmContext = new llvm::LLVMContext();
+    llvm::Module* llvmModule = new llvm::Module("my_module", *llvmContext);
+    llvm::IRBuilder<>* builder = new llvm::IRBuilder<>(*llvmContext);
+
+    build_LLVM_IR(llvmModule, builder);
+
+    std::ofstream llFile("output.ll");
+    std::string llContents;
+    llvm::raw_string_ostream ostr(llContents);
+    llvmModule->print(ostr, nullptr);
+
+    llFile << llContents;
+    llFile.close();
+
+    delete builder;
+    delete llvmModule;
+    delete llvmContext;
 }
 

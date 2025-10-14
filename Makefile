@@ -1,8 +1,8 @@
 CC=clang++
-WARNINGS='-Werror'
-CFLAGS=-std=c++11 -g -fno-common $(WARNINGS)
-leocc: main.cpp leocc.hpp cst.cpp ast.cpp codegen.cpp
-	$(CC) -o leocc *.cpp $(CFLAGS)
+WARNINGS=''
+CFLAGS=-g -fno-common $(WARNINGS)
+leocc: main.cpp leocc.hpp cst.cpp ast.cpp codegen.cpp 
+	$(CC) -o leocc *.cpp $(CFLAGS) -I /usr/include/llvm-18 -I /usr/include/llvm-c-18  -lLLVM-18
 
 
 
