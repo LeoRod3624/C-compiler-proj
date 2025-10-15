@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set defaults to x86
-GCC=gcc
+CLANG=clang
 TMP=tmp
 RUN_LINE="./$TMP"
 TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
@@ -14,7 +14,7 @@ assert() {
     ./leocc "$input" > $TMP.s || exit
 
     # Link with the external assembly file for function definitions
-    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
+    $CLANG -static -o $TMP $TMP.s $TEST_FUNCTIONS
 
     # Run the resulting executable
     $RUN_LINE
