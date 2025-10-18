@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set defaults to x86
-GCC=gcc
+GCC=clang
 TMP=tmp
 RUN_LINE="./$TMP"
 TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
