@@ -433,6 +433,13 @@ static llvm::Value* bool_i1_to_i64(CG& cg, llvm::Value* v) {
   return cg.irb->CreateZExt(v, llvm::Type::getInt64Ty(*cg.ctx), "bool64");
 }
 
+// Turn any i64 into an i1 "is nonzero?"
+static llvm::Value* as_bool_i1(CG& cg, llvm::Value* v) {
+  v = as_i64(cg, v);
+  auto* zero = llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0);
+  return cg.irb->CreateICmpNE(v, zero, "tobool");
+}
+
 // Forward decls
 static llvm::Value* genR(CG& cg, NodeExpr* e);
 static void gen(CG& cg, NodeStmt* s);
@@ -497,6 +504,82 @@ static void gen(CG& cg, NodeStmt* s) {
     (void)genR(cg, es->_expr);
     return;
   }
+
+  // while (expr) stmt
+  if (auto* w = dynamic_cast<NodeWhileStmt*>(s)) {
+    auto* fn = cg.curFn;
+
+    auto* condBB  = llvm::BasicBlock::Create(*cg.ctx, "while.cond", fn);
+    auto* bodyBB  = llvm::BasicBlock::Create(*cg.ctx, "while.body");
+    auto* afterBB = llvm::BasicBlock::Create(*cg.ctx, "while.after");
+
+    // jump to condition
+    cg.irb->CreateBr(condBB);
+
+    // cond:
+    cg.irb->SetInsertPoint(condBB);
+    llvm::Value* condV = as_bool_i1(cg, genR(cg, w->_expr));
+    cg.irb->CreateCondBr(condV, bodyBB, afterBB);
+
+    // body:
+    fn->getBasicBlockList().push_back(bodyBB);
+    cg.irb->SetInsertPoint(bodyBB);
+    gen(cg, w->_stmt);
+    if (!cg.irb->GetInsertBlock()->getTerminator())
+        cg.irb->CreateBr(condBB);  // loop back
+
+    // after:
+    fn->getBasicBlockList().push_back(afterBB);
+    cg.irb->SetInsertPoint(afterBB);
+    return;
+  }
+
+  // for (Init; Cond; Increment) Body
+  if (auto* f = dynamic_cast<NodeForStmt*>(s)) {
+    auto* fn = cg.curFn;
+
+    auto* condBB  = llvm::BasicBlock::Create(*cg.ctx, "for.cond", fn);
+    auto* bodyBB  = llvm::BasicBlock::Create(*cg.ctx, "for.body");
+    auto* incBB   = llvm::BasicBlock::Create(*cg.ctx, "for.inc");
+    auto* afterBB = llvm::BasicBlock::Create(*cg.ctx, "for.after");
+
+    // init
+    if (f->Init) gen(cg, f->Init);
+
+    // to cond
+    cg.irb->CreateBr(condBB);
+
+    // cond:
+    cg.irb->SetInsertPoint(condBB);
+    llvm::Value* condV = nullptr;
+    if (auto* es = dynamic_cast<NodeExprStmt*>(f->Cond)) {
+        condV = es->_expr ? as_bool_i1(cg, genR(cg, es->_expr)) : llvm::ConstantInt::getTrue(*cg.ctx);
+    } else if (dynamic_cast<NodeNullStmt*>(f->Cond)) {
+        condV = llvm::ConstantInt::getTrue(*cg.ctx); // empty = true
+    } else {
+        condV = llvm::ConstantInt::getTrue(*cg.ctx); // fallback
+    }
+    cg.irb->CreateCondBr(condV, bodyBB, afterBB);
+
+    // body:
+    fn->getBasicBlockList().push_back(bodyBB);
+    cg.irb->SetInsertPoint(bodyBB);
+    gen(cg, f->Body);
+    if (!cg.irb->GetInsertBlock()->getTerminator())
+        cg.irb->CreateBr(incBB);
+
+    // inc:
+    fn->getBasicBlockList().push_back(incBB);
+    cg.irb->SetInsertPoint(incBB);
+    if (f->Increment) (void)genR(cg, f->Increment);
+    cg.irb->CreateBr(condBB);
+
+    // after:
+    fn->getBasicBlockList().push_back(afterBB);
+    cg.irb->SetInsertPoint(afterBB);
+    return;
+  }
+
 
   // Other statements (while/for/if) can be added next
 }
