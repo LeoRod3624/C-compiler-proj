@@ -29,6 +29,7 @@ assert() {
 }
 
 # Start with the cases your LLVM backend supports today:
+
 assert 7 'int main(){ return 7; }'
 
 assert 5 'int main(){ return 2 + 3; }'
@@ -38,4 +39,11 @@ assert 3 'int main(){ return 9 / 3; }'
 assert 10 'int main(){ return 1 + 2 + 3 + 4; }'
 assert 14 'int main(){ return 2 * 3 + 8; }'
 
+assert 1 'int main(){ return 1 < 2; }'
+assert 0 'int main(){ return 2 < 1; }'
+assert 1 'int main(){ return 3 >= 3; }'
+assert 0 'int main(){ return 3 >= 4; }'
+assert 1 'int main(){ return 10 == 10; }'
+assert 0 'int main(){ return 10 != 10; }'
+assert 2 'int main(){ return (0 <= 1) + (1 > 0); }'
 echo OK
