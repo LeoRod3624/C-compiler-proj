@@ -3,6 +3,8 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <fstream>
+#include <cstdlib>
+#include <unordered_map>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/Host.h>
@@ -397,49 +399,63 @@ void NodeFunctionDef::codegen() {
     emit_epilogue();
 }
 
-void build_LLVM_IR(llvm::Module* module, llvm::IRBuilder<>* llvmBuilder) {
-    // Placeholder for LLVM IR generation logic
-    // This function should traverse the AST and generate LLVM IR using the provided module
-    module->getOrInsertFunction("main", llvm::FunctionType::get(llvm::Type::getInt32Ty(module->getContext()), false));
-    llvm::Function* mainFunc = module->getFunction("main");
-    llvm::BasicBlock* entry = llvm::BasicBlock::Create(module->getContext(), "entry", mainFunc);
-    llvmBuilder->SetInsertPoint(entry);
-    llvmBuilder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(module->getContext()), 7));
-}
-
 namespace leocc_llvm {
 
-//vvvvvv llvm context (keep things structured here)
+// Small codegen context for LLVM
 struct CG {
   llvm::LLVMContext* ctx;
   llvm::Module* mod;
   llvm::IRBuilder<>* irb;
   llvm::Function* curFn = nullptr;
+
+  // locals: name -> alloca
+  std::unordered_map<std::string, llvm::AllocaInst*> locals;
 };
 
 static llvm::Type* LEO_i64(llvm::LLVMContext& ctx) {
   return llvm::Type::getInt64Ty(ctx);
 }
 
+static llvm::AllocaInst* createEntryAlloca(CG& cg, const std::string& name) {
+  llvm::IRBuilder<> tmp(&cg.curFn->getEntryBlock(),
+                        cg.curFn->getEntryBlock().begin());
+  return tmp.CreateAlloca(llvm::Type::getInt64Ty(*cg.ctx), nullptr, name);
+}
+
+static llvm::Value* as_i64(CG& cg, llvm::Value* v) {
+  if (v->getType()->isIntegerTy(64)) return v;
+  if (v->getType()->isIntegerTy(32))
+    return cg.irb->CreateSExt(v, llvm::Type::getInt64Ty(*cg.ctx));
+  return v;
+}
+
+static llvm::Value* bool_i1_to_i64(CG& cg, llvm::Value* v) {
+  return cg.irb->CreateZExt(v, llvm::Type::getInt64Ty(*cg.ctx), "bool64");
+}
+
 // Forward decls
 static llvm::Value* genR(CG& cg, NodeExpr* e);
 static void gen(CG& cg, NodeStmt* s);
 
+// Program → emit each function
 static void gen(CG& cg, NodeProgram* p) {
   for (auto* f : p->func_defs) {
+    cg.locals.clear();
+
     auto* fnTy = llvm::FunctionType::get(LEO_i64(*cg.ctx), /*isVarArg=*/false);
-    auto* fn   = llvm::Function::Create(fnTy, llvm::Function::ExternalLinkage, f->declarator, cg.mod);
+    auto* fn   = llvm::Function::Create(fnTy, llvm::Function::ExternalLinkage,
+                                        f->declarator, cg.mod);
 
     cg.curFn = fn;
     auto* entry = llvm::BasicBlock::Create(*cg.ctx, "entry", fn);
     cg.irb->SetInsertPoint(entry);
 
-    // go into function body and visit stmts
+    // Body
     if (f->body) {
       for (auto* st : f->body->stmt_list) gen(cg, st);
     }
 
-    // If nothing returned, default to 0
+    // Default return 0 if none
     if (!entry->getTerminator()) {
       cg.irb->CreateRet(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0));
     }
@@ -449,7 +465,7 @@ static void gen(CG& cg, NodeProgram* p) {
   }
 }
 
-// Stmt → handle return / block / null
+// Stmt → return / block / null / decls / expr-stmt
 static void gen(CG& cg, NodeStmt* s) {
   if (auto* r = dynamic_cast<NodeReturnStmt*>(s)) {
     llvm::Value* v = genR(cg, r->_expr);
@@ -462,29 +478,63 @@ static void gen(CG& cg, NodeStmt* s) {
   }
   if (dynamic_cast<NodeNullStmt*>(s)) return;
 
-}
-
-static llvm::Value* bool_i1_to_i64(CG& cg, llvm::Value* v) {
-  // v is i1; make it i64 (0 or 1)
-  return cg.irb->CreateZExt(v, llvm::Type::getInt64Ty(*cg.ctx), "bool64");
-}
-
-
-//ensure i64
-static llvm::Value* as_i64(CG& cg, llvm::Value* v) {
-  if (v->getType()->isIntegerTy(64)) return v;
-  if (v->getType()->isIntegerTy(32)) {
-    return cg.irb->CreateSExt(v, llvm::Type::getInt64Ty(*cg.ctx));
+  if (auto* dl = dynamic_cast<NodeDeclList*>(s)) {
+    for (auto* d : dl->decls) {
+      const std::string& name = d->varName;
+      auto* slot = createEntryAlloca(cg, name);
+      cg.locals[name] = slot;
+      if (d->initializer) {
+        llvm::Value* init = genR(cg, d->initializer);
+        cg.irb->CreateStore(init, slot);
+      } else {
+        cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), slot);
+      }
+    }
+    return;
   }
-  return v; // fallback for now
+
+  if (auto* es = dynamic_cast<NodeExprStmt*>(s)) {
+    (void)genR(cg, es->_expr);
+    return;
+  }
+
+  // Other statements (while/for/if) can be added next
 }
 
-// Exprs: numbers, +, -, *, /
+// Exprs: id/assign/nums/arithmetic/comparisons
 static llvm::Value* genR(CG& cg, NodeExpr* e) {
+  // identifier load
+  if (auto* id = dynamic_cast<NodeId*>(e)) {
+    auto it = cg.locals.find(id->id);
+    if (it == cg.locals.end()) {
+      it = cg.locals.emplace(id->id, createEntryAlloca(cg, id->id)).first;
+      cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), it->second);
+    }
+    return cg.irb->CreateLoad(LEO_i64(*cg.ctx), it->second, id->id + ".val");
+  }
+
+  // assignment (lhs = rhs) — only NodeId LHS for now
+  if (auto* asn = dynamic_cast<NodeAssign*>(e)) {
+    if (auto* lid = dynamic_cast<NodeId*>(asn->lhs)) {
+      auto it = cg.locals.find(lid->id);
+      llvm::AllocaInst* slot = nullptr;
+      if (it == cg.locals.end()) {
+        slot = createEntryAlloca(cg, lid->id);
+        cg.locals[lid->id] = slot;
+        cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), slot);
+      } else {
+        slot = it->second;
+      }
+      llvm::Value* rhs = as_i64(cg, genR(cg, asn->rhs));
+      cg.irb->CreateStore(rhs, slot);
+      return rhs; // assignment expression evaluates to assigned value
+    }
+  }
+
   // number literal
   if (auto* n = dynamic_cast<NodeNum*>(e)) {
     return llvm::ConstantInt::get(LEO_i64(*cg.ctx),
-                                  (uint64_t)n->num_literal,
+                                  (int64_t)n->num_literal,
                                   /*isSigned=*/true);
   }
 
@@ -516,62 +566,44 @@ static llvm::Value* genR(CG& cg, NodeExpr* e) {
     return cg.irb->CreateSDiv(L, R, "divtmp");
   }
 
-  // a < b
-    if (auto* n = dynamic_cast<NodeLT*>(e)) {
+  // comparisons -> icmp i1 -> zext i64
+  if (auto* n = dynamic_cast<NodeLT*>(e)) {
     auto* L = as_i64(cg, genR(cg, n->lhs));
     auto* R = as_i64(cg, genR(cg, n->rhs));
-    auto* cmp = cg.irb->CreateICmpSLT(L, R, "cmplt");
-    return bool_i1_to_i64(cg, cmp);
-    }
-
-    // a <= b
-    if (auto* n = dynamic_cast<NodeLTE*>(e)) {
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpSLT(L, R, "cmplt"));
+  }
+  if (auto* n = dynamic_cast<NodeLTE*>(e)) {
     auto* L = as_i64(cg, genR(cg, n->lhs));
     auto* R = as_i64(cg, genR(cg, n->rhs));
-    auto* cmp = cg.irb->CreateICmpSLE(L, R, "cmple");
-    return bool_i1_to_i64(cg, cmp);
-    }
-
-    // a > b
-    if (auto* n = dynamic_cast<NodeGT*>(e)) {
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpSLE(L, R, "cmple"));
+  }
+  if (auto* n = dynamic_cast<NodeGT*>(e)) {
     auto* L = as_i64(cg, genR(cg, n->lhs));
     auto* R = as_i64(cg, genR(cg, n->rhs));
-    auto* cmp = cg.irb->CreateICmpSGT(L, R, "cmpgt");
-    return bool_i1_to_i64(cg, cmp);
-    }
-
-    // a >= b
-    if (auto* n = dynamic_cast<NodeGTE*>(e)) {
-    auto* L = as_i64(cg, genR(cg, n->lhs));
-    auto* R = as_i64(cg, n->rhs ? genR(cg, n->rhs) : nullptr);
-    R = as_i64(cg, R);
-    auto* cmp = cg.irb->CreateICmpSGE(L, R, "cmpge");
-    return bool_i1_to_i64(cg, cmp);
-    }
-
-    // a == b
-    if (auto* n = dynamic_cast<NodeEE*>(e)) {
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpSGT(L, R, "cmpgt"));
+  }
+  if (auto* n = dynamic_cast<NodeGTE*>(e)) {
     auto* L = as_i64(cg, genR(cg, n->lhs));
     auto* R = as_i64(cg, genR(cg, n->rhs));
-    auto* cmp = cg.irb->CreateICmpEQ(L, R, "cmpeq");
-    return bool_i1_to_i64(cg, cmp);
-    }
-
-    // a != b
-    if (auto* n = dynamic_cast<NodeNE*>(e)) {
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpSGE(L, R, "cmpge"));
+  }
+  if (auto* n = dynamic_cast<NodeEE*>(e)) {
     auto* L = as_i64(cg, genR(cg, n->lhs));
     auto* R = as_i64(cg, genR(cg, n->rhs));
-    auto* cmp = cg.irb->CreateICmpNE(L, R, "cmpne");
-    return bool_i1_to_i64(cg, cmp);
-    }
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpEQ(L, R, "cmpeq"));
+  }
+  if (auto* n = dynamic_cast<NodeNE*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    return bool_i1_to_i64(cg, cg.irb->CreateICmpNE(L, R, "cmpne"));
+  }
 
-  // fallback for unhandled exprs
+  // fallback
   return llvm::UndefValue::get(LEO_i64(*cg.ctx));
 }
 
 // Entry point for LLVM backend (uses AST root)
 void build_LLVM_IR(Node* root, llvm::Module* module, llvm::IRBuilder<>* llvmBuilder) {
-  // set target triple to avoid clang warning
   module->setTargetTriple(llvm::sys::getDefaultTargetTriple());
 
   CG cg{ &module->getContext(), module, llvmBuilder };
@@ -585,26 +617,34 @@ void build_LLVM_IR(Node* root, llvm::Module* module, llvm::IRBuilder<>* llvmBuil
 
 } // namespace leocc_llvm
 
-
-
+// ========================================================
+// ================== BACKEND SWITCHER ====================
+// ========================================================
 void do_codegen(Node* root) {
-    //root->codegen();  // Generate code for the program's AST
-    llvm::LLVMContext* llvmContext = new llvm::LLVMContext();
-    llvm::Module* llvmModule = new llvm::Module("my_module", *llvmContext);
-    llvm::IRBuilder<>* builder = new llvm::IRBuilder<>(*llvmContext);
+  const char* which = std::getenv("LEO_BACKEND");
+  bool use_llvm = (which && std::string(which) == "llvm");
 
-    leocc_llvm::build_LLVM_IR(root, llvmModule, builder);
+  if (!use_llvm) {
+    // ARM64 path: print assembly to stdout (your existing tests)
+    root->codegen();
+    return;
+  }
 
-    std::ofstream llFile("output.ll");
-    std::string llContents;
-    llvm::raw_string_ostream ostr(llContents);
-    llvmModule->print(ostr, nullptr);
+  // LLVM path: write output.ll
+  auto* llvmContext = new llvm::LLVMContext();
+  auto* llvmModule  = new llvm::Module("my_module", *llvmContext);
+  auto* builder     = new llvm::IRBuilder<>(*llvmContext);
 
-    llFile << llContents;
-    llFile.close();
+  leocc_llvm::build_LLVM_IR(root, llvmModule, builder);
 
-    delete builder;
-    delete llvmModule;
-    delete llvmContext;
+  std::ofstream llFile("output.ll");
+  std::string llContents;
+  llvm::raw_string_ostream ostr(llContents);
+  llvmModule->print(ostr, nullptr);
+  llFile << llContents;
+  llFile.close();
+
+  delete builder;
+  delete llvmModule;
+  delete llvmContext;
 }
-
