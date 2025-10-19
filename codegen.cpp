@@ -464,6 +464,12 @@ static void gen(CG& cg, NodeStmt* s) {
 
 }
 
+static llvm::Value* bool_i1_to_i64(CG& cg, llvm::Value* v) {
+  // v is i1; make it i64 (0 or 1)
+  return cg.irb->CreateZExt(v, llvm::Type::getInt64Ty(*cg.ctx), "bool64");
+}
+
+
 //ensure i64
 static llvm::Value* as_i64(CG& cg, llvm::Value* v) {
   if (v->getType()->isIntegerTy(64)) return v;
@@ -509,6 +515,55 @@ static llvm::Value* genR(CG& cg, NodeExpr* e) {
     auto* R = as_i64(cg, genR(cg, d->rhs));
     return cg.irb->CreateSDiv(L, R, "divtmp");
   }
+
+  // a < b
+    if (auto* n = dynamic_cast<NodeLT*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    auto* cmp = cg.irb->CreateICmpSLT(L, R, "cmplt");
+    return bool_i1_to_i64(cg, cmp);
+    }
+
+    // a <= b
+    if (auto* n = dynamic_cast<NodeLTE*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    auto* cmp = cg.irb->CreateICmpSLE(L, R, "cmple");
+    return bool_i1_to_i64(cg, cmp);
+    }
+
+    // a > b
+    if (auto* n = dynamic_cast<NodeGT*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    auto* cmp = cg.irb->CreateICmpSGT(L, R, "cmpgt");
+    return bool_i1_to_i64(cg, cmp);
+    }
+
+    // a >= b
+    if (auto* n = dynamic_cast<NodeGTE*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, n->rhs ? genR(cg, n->rhs) : nullptr);
+    R = as_i64(cg, R);
+    auto* cmp = cg.irb->CreateICmpSGE(L, R, "cmpge");
+    return bool_i1_to_i64(cg, cmp);
+    }
+
+    // a == b
+    if (auto* n = dynamic_cast<NodeEE*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    auto* cmp = cg.irb->CreateICmpEQ(L, R, "cmpeq");
+    return bool_i1_to_i64(cg, cmp);
+    }
+
+    // a != b
+    if (auto* n = dynamic_cast<NodeNE*>(e)) {
+    auto* L = as_i64(cg, genR(cg, n->lhs));
+    auto* R = as_i64(cg, genR(cg, n->rhs));
+    auto* cmp = cg.irb->CreateICmpNE(L, R, "cmpne");
+    return bool_i1_to_i64(cg, cmp);
+    }
 
   // fallback for unhandled exprs
   return llvm::UndefValue::get(LEO_i64(*cg.ctx));
