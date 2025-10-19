@@ -60,4 +60,8 @@ assert 6  'int main(){ int a = 1; int b = 2; int c = 3; return a + b + c; }'
 assert -3 'int main(){ return -3; }'
 assert -1 'int main(){ return -2 + 1; }'
 assert 1  'int main(){ return -2 < -1; }'
+
+assert 10 'int main() { int i; i = 0; while (i < 10) { i = i + 1; } return i; }'
+assert 55 'int main() { int i, j; i = 0; j = 0; for (i = 0; i <= 10; i = i + 1) j = i + j; return j; }'
+
 echo OK
