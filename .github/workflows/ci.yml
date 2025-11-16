@@ -31,7 +31,7 @@ jobs:
       - name: Run ARM backend tests (AArch64 via QEMU)
         env:
           LEO_CC: aarch64-linux-gnu-gcc
-          LEO_RUN: qemu-aarch64
+          LEO_RUN: qemu-aarch64 ./tmp
           LEO_BACKEND: ""
         run: |
           set -ex
