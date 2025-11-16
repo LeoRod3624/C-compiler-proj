@@ -25,6 +25,7 @@ jobs:
 
       - name: Run ARM backend tests
         run: |
+          set -ex
           make test
 
       - name: Run LLVM IR backend tests
