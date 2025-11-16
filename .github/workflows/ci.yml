@@ -1,44 +1,32 @@
-name: CI
+name: CI for llvm_ir
 
 on:
   push:
-    branches:
-      - llvm_ir
+    branches: [ llvm_ir ]
   pull_request:
-      - llvm_ir
+    branches: [ llvm_ir ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (clang + LLVM 14)
+      - name: Install LLVM and Clang
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm-14 llvm-14-dev llvm-14-tools
-
-      - name: Show LLVM/Clang versions (debug info)
-        run: |
-          clang --version || true
-          llvm-config-14 --version || true
-
-      - name: Make test scripts executable (just in case)
-        run: |
-          chmod +x test.sh || true
-          chmod +x test_llvm.sh || true
+          sudo apt-get install -y clang llvm-14-dev
 
       - name: Build leocc
         run: |
           make
 
-      - name: Run ARM backend tests (default backend)
+      - name: Run ARM backend tests
         run: |
           make test
 
       - name: Run LLVM IR backend tests
         run: |
           make test_llvm
-
