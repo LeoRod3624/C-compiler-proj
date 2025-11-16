@@ -1,30 +1,44 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Set defaults to x86
-GCC=clang
+# Default compiler: clang (x86/AArch64 native on your Mac)
+# On CI we will override this with LEO_CC=aarch64-linux-gnu-gcc
+GCC="${LEO_CC:-clang}"
+
 TMP=tmp
-RUN_LINE="./$TMP"
-TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
+TEST_FUNCTIONS=c_test_functions.c  # External C file for function definitions
+
+# Runner:
+# - Locally: just ./tmp
+# - On CI: LEO_RUN=qemu-aarch64 so we run via QEMU
+LEO_RUN="${LEO_RUN:-}"
 
 assert() {
     expected="$1"
     input="$2"
 
-    # Compile the input to assembly
-    ./leocc "$input" > $TMP.s || exit
+    # Compile the input to assembly with your compiler
+    ./leocc "$input" > "$TMP.s" || exit 1
 
-    # Link with the external assembly file for function definitions
-    $GCC -static -o $TMP $TMP.s $TEST_FUNCTIONS
+    # Compile+link with the external C file for helper functions
+    "$GCC" -static -o "$TMP" "$TMP.s" "$TEST_FUNCTIONS"
 
     # Run the resulting executable
-    $RUN_LINE
+    if [ -n "$LEO_RUN" ]; then
+        # e.g. qemu-aarch64 ./tmp on CI
+        $LEO_RUN "./$TMP"
+    else
+        # Native run on your Mac
+        "./$TMP"
+    fi
+
     actual="$?"
 
     if [ "$actual" = "$expected" ]; then 
         echo "$input => $actual"
     else
         echo "$input => $expected expected, but got $actual"
-        exit 1 
+        exit 1
     fi
 }
 
