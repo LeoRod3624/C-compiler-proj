@@ -16,14 +16,23 @@ jobs:
 
       - name: Install LLVM and Clang
         run: |
+          set -ex
           sudo apt-get update
-          sudo apt-get install -y clang llvm-14-dev
+          sudo apt-get install -y \
+            clang \
+            llvm-14-dev \
+            qemu-user \
+            gcc-aarch64-linux-gnu
 
       - name: Build leocc
         run: |
           make
 
-      - name: Run ARM backend tests
+      - name: Run ARM backend tests (AArch64 via QEMU)
+        env:
+          LEO_CC: aarch64-linux-gnu-gcc
+          LEO_RUN: qemu-aarch64
+          LEO_BACKEND: ""
         run: |
           set -ex
           make test
