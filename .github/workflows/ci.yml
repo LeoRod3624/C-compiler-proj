@@ -22,11 +22,18 @@ jobs:
             clang \
             llvm-14-dev \
             qemu-user \
-            gcc-aarch64-linux-gnu
+            gcc-aarch64-linux-gnu \
+            cmake \
+            ninja-build
 
       - name: Build leocc
         run: |
-          make
+          mkdir build
+          cd build
+          cmake -G Ninja ..
+          ninja 
+          cp ./leocc ../leocc
+          
 
       - name: Run ARM backend tests (AArch64 via QEMU)
         env:
@@ -35,8 +42,13 @@ jobs:
           LEO_BACKEND: ""
         run: |
           set -ex
-          make test
+          ./test.sh
 
       - name: Run LLVM IR backend tests
+        env:
+        LEO_CC: aarch64-linux-gnu-gcc
+        LEO_RUN: qemu-aarch64 ./tmp
+        LEO_BACKEND: ""
         run: |
-          make test_llvm
+          set -ex
+          ./test_llvm.sh

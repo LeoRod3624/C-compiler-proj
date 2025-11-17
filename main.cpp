@@ -36,8 +36,7 @@ int main(int argc, char* argv[]){
     //     exit(0);
     // }
 
-    tokens_i = 0;
-    current_tok = tokens[tokens_i];
+
 
     Node* abstract_tree = abstract_parse();
     
