@@ -46,9 +46,9 @@ jobs:
 
       - name: Run LLVM IR backend tests
         env:
-        LEO_CC: aarch64-linux-gnu-gcc
-        LEO_RUN: qemu-aarch64 ./tmp
-        LEO_BACKEND: ""
+          LEO_CC: aarch64-linux-gnu-gcc
+          LEO_RUN: qemu-aarch64 ./tmp
+          LEO_BACKEND: ""
         run: |
           set -ex
           ./test_llvm.sh
