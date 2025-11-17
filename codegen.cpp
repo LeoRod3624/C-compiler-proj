@@ -705,6 +705,7 @@ void build_LLVM_IR(Node* root, llvm::Module* module, llvm::IRBuilder<>* llvmBuil
 // ========================================================
 void do_codegen(Node* root) {
   const char* which = std::getenv("LEO_BACKEND");
+  assert(which && "LEO_BACKEND must be defined, either (empty) or llvm");
   bool use_llvm = (which && std::string(which) == "llvm");
 
   if (!use_llvm) {
