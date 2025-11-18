@@ -216,10 +216,10 @@ NodeForStmt::NodeForStmt(NodeStmt* s1, NodeStmt* s2, NodeExpr* e, NodeStmt* s){
     Cond = s2;
     Increment = e;
     Body = s;
-    Init->parent = this;
-    Cond->parent = this;
-    Increment->parent = this;
-    Body->parent = this;
+    if (Init)      Init->parent = this;
+    if (Cond)      Cond->parent = this;
+    if (Increment) Increment->parent = this;
+    if (Body)      Body->parent = this;
 };
 
 NodeWhileStmt::NodeWhileStmt(NodeExpr* e, NodeStmt* s){
