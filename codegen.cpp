@@ -284,16 +284,29 @@ void NodeReturnStmt::codegen() {
 void NodeForStmt::codegen() {
     string cond = ".L.FCOND_" + to_string(counter);
     string after = ".L.FAFTER_" + to_string(counter++);
-    Init->codegen();  // Initialization
+    
+    if (Init)
+        Init->codegen();  // may be a real stmt or NodeNullStmt
+
     emit_label(cond);
-    Cond->codegen();  // Condition
-    emit_cond_jump(after);  // Jump if false
-    Body->codegen();  // Loop body
-    if (Increment) {
-        Increment->codegen();  // Increment step
+
+    // Handle empty condition as "true"
+    if (dynamic_cast<NodeNullStmt*>(Cond)) {
+        // accum_reg = 1 (true)
+        emit_move(accum_reg, "1");
+    } else {
+        Cond->codegen();  // Condition
     }
-    emit_jump(cond);  // Loop back
-    emit_label(after);  // Exit point
+
+    emit_cond_jump(after);  // Jump if false
+    Body->codegen();        // Loop body
+
+    if (Increment) {
+        Increment->codegen();  // Increment step (may be nullptr)
+    }
+
+    emit_jump(cond);        // Loop back
+    emit_label(after);      // Exit point
 }
 
 
@@ -415,14 +428,28 @@ struct CG {
   std::unordered_map<std::string, llvm::Function*> functions;
 };
 
+static llvm::Type* leoType(CG& cg, CType* ct) {
+  // int -> i64
+  if (ct && ct->isIntType())
+    return llvm::Type::getInt64Ty(*cg.ctx);
+
+  // pointer -> recursively make a pointer type
+  if (ct && ct->isPtrType()) {
+    auto* pt = static_cast<CPtrType*>(ct);
+    llvm::Type* elemTy = leoType(cg, pt->referenced_type);
+    return elemTy->getPointerTo();
+  }
+
+  // Fallback: just use i64
+  return llvm::Type::getInt64Ty(*cg.ctx);
+}
+
 static llvm::Type* LEO_i64(llvm::LLVMContext& ctx) {
   return llvm::Type::getInt64Ty(ctx);
 }
 
-static llvm::AllocaInst* createEntryAlloca(CG& cg, const std::string& name) {
-  llvm::IRBuilder<> tmp(&cg.curFn->getEntryBlock(),
-                        cg.curFn->getEntryBlock().begin());
-  return tmp.CreateAlloca(llvm::Type::getInt64Ty(*cg.ctx), nullptr, name);
+static llvm::AllocaInst* createEntryAlloca(CG& cg, llvm::Type* ty, const std::string& name) { llvm::IRBuilder<> tmp(&cg.curFn->getEntryBlock(), cg.curFn->getEntryBlock().begin());
+  return tmp.CreateAlloca(ty, nullptr, name);
 }
 
 static llvm::Value* as_i64(CG& cg, llvm::Value* v) {
@@ -459,14 +486,9 @@ static void gen(CG& cg, NodeProgram* p) {
       paramTypes.push_back(LEO_i64(*cg.ctx));
     }
 
-    auto* fnTy = llvm::FunctionType::get(LEO_i64(*cg.ctx),
-                                         paramTypes,
-                                         /*isVarArg=*/false);
+    auto* fnTy = llvm::FunctionType::get(LEO_i64(*cg.ctx),paramTypes,/*isVarArg=*/false);
 
-    auto* fn = llvm::Function::Create(fnTy,
-                                      llvm::Function::ExternalLinkage,
-                                      f->declarator,
-                                      cg.mod);
+    auto* fn = llvm::Function::Create(fnTy,llvm::Function::ExternalLinkage,f->declarator,cg.mod);
 
     cg.functions[f->declarator] = fn;
 
@@ -490,10 +512,18 @@ static void gen(CG& cg, NodeProgram* p) {
     // Create allocas for parameters and store incoming values into them
     unsigned idx = 0;
     for (auto& arg : fn->args()) {
-      const std::string& name = f->params[idx++]->varName;
-      auto* slot = createEntryAlloca(cg, name);
+      NodeDecl* paramDecl = f->params[idx];
+      const std::string& name = paramDecl->varName;
+
+      // Use your C type to pick the right LLVM type (int / pointer / etc.)
+      llvm::Type* ty = leoType(cg, paramDecl->c_type);
+
+      auto* slot = createEntryAlloca(cg, ty, name);
       cg.locals[name] = slot;
+
       cg.irb->CreateStore(&arg, slot);
+
+      ++idx;
     }
 
     // Body statements
@@ -526,19 +556,38 @@ static void gen(CG& cg, NodeStmt* s) {
   if (dynamic_cast<NodeNullStmt*>(s)) return;
 
   if (auto* dl = dynamic_cast<NodeDeclList*>(s)) {
-    for (auto* d : dl->decls) {
-      const std::string& name = d->varName;
-      auto* slot = createEntryAlloca(cg, name);
-      cg.locals[name] = slot;
-      if (d->initializer) {
-        llvm::Value* init = genR(cg, d->initializer);
-        cg.irb->CreateStore(init, slot);
-      } else {
-        cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), slot);
+  for (auto* d : dl->decls) {
+    const std::string& name = d->varName;
+
+    // Pick LLVM type based on C type (int / pointer / pointer-to-pointer, etc.)
+    llvm::Type* ty = leoType(cg, d->c_type);
+
+    auto* slot = createEntryAlloca(cg, ty, name);
+    cg.locals[name] = slot;
+
+    if (d->initializer) {
+      llvm::Value* init = genR(cg, d->initializer);
+      // If needed you can cast init here; for now we assume types match.
+      cg.irb->CreateStore(init, slot);
+    } else {
+      // Default-init ints to 0, pointers to null
+      if (ty->isIntegerTy(64)) {
+        cg.irb->CreateStore(
+          llvm::ConstantInt::get(ty, 0),
+          slot
+        );
+      } else if (ty->isPointerTy()) {
+        cg.irb->CreateStore(
+          llvm::ConstantPointerNull::get(
+            llvm::cast<llvm::PointerType>(ty)
+          ),
+          slot
+        );
       }
     }
-    return;
   }
+  return;
+}
 
   if (auto* es = dynamic_cast<NodeExprStmt*>(s)) {
     (void)genR(cg, es->_expr);
@@ -630,29 +679,87 @@ static llvm::Value* genR(CG& cg, NodeExpr* e) {
   if (auto* id = dynamic_cast<NodeId*>(e)) {
     auto it = cg.locals.find(id->id);
     if (it == cg.locals.end()) {
-      it = cg.locals.emplace(id->id, createEntryAlloca(cg, id->id)).first;
-      cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), it->second);
+      std::cerr << "LLVM backend: unknown local '" << id->id << "'\n";
+      std::exit(1);
     }
-    return cg.irb->CreateLoad(LEO_i64(*cg.ctx), it->second, id->id + ".val");
+    llvm::AllocaInst* slot = it->second;
+    llvm::Type* elemTy = slot->getAllocatedType();
+    return cg.irb->CreateLoad(elemTy, slot, id->id + ".val");
   }
 
-  // assignment (lhs = rhs) — only NodeId LHS for now
-  if (auto* asn = dynamic_cast<NodeAssign*>(e)) {
-    if (auto* lid = dynamic_cast<NodeId*>(asn->lhs)) {
-      auto it = cg.locals.find(lid->id);
-      llvm::AllocaInst* slot = nullptr;
-      if (it == cg.locals.end()) {
-        slot = createEntryAlloca(cg, lid->id);
-        cg.locals[lid->id] = slot;
-        cg.irb->CreateStore(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0), slot);
-      } else {
-        slot = it->second;
-      }
-      llvm::Value* rhs = as_i64(cg, genR(cg, asn->rhs));
-      cg.irb->CreateStore(rhs, slot);
-      return rhs; // assignment expression evaluates to assigned value
+  // &expr  (for now: only &id)
+if (auto* a = dynamic_cast<NodeAddressOf*>(e)) {
+  if (auto* id = dynamic_cast<NodeId*>(a->_expr)) {
+    auto it = cg.locals.find(id->id);
+    if (it == cg.locals.end()) {
+      std::cerr << "LLVM backend: & of unknown local '" << id->id << "'\n";
+      std::exit(1);
     }
+    llvm::AllocaInst* slot = it->second;
+    // alloca has type T*; &x is just that pointer
+    return slot;
   }
+
+  std::cerr << "LLVM backend: &expr currently only supports &id\n";
+  std::exit(1);
+}
+
+
+// *expr
+if (auto* d = dynamic_cast<NodeDereference*>(e)) {
+  llvm::Value* ptr = genR(cg, d->_expr);  // should be some T*
+  auto* ptrTy = llvm::dyn_cast<llvm::PointerType>(ptr->getType());
+  if (!ptrTy) {
+    std::cerr << "LLVM backend: dereference of non-pointer value\n";
+    std::exit(1);
+  }
+  llvm::Type* elemTy = ptrTy->getElementType();
+  return cg.irb->CreateLoad(elemTy, ptr, "deref");
+}
+
+
+  // assignment (lhs = rhs)
+if (auto* asn = dynamic_cast<NodeAssign*>(e)) {
+  // Case 1: simple x = rhs;
+  if (auto* lid = dynamic_cast<NodeId*>(asn->lhs)) {
+    auto it = cg.locals.find(lid->id);
+    if (it == cg.locals.end()) {
+      std::cerr << "LLVM backend: store to unknown local '" << lid->id << "'\n";
+      std::exit(1);
+    }
+    llvm::AllocaInst* slot = it->second;
+    llvm::Type* elemTy = slot->getAllocatedType();
+
+    llvm::Value* rhs = genR(cg, asn->rhs);
+    if (rhs->getType() != elemTy) {
+      // You can add casts here later; for now, assume well-typed
+    }
+    cg.irb->CreateStore(rhs, slot);
+    return rhs;
+  }
+
+  // Case 2: *p = rhs;
+  if (auto* d = dynamic_cast<NodeDereference*>(asn->lhs)) {
+    llvm::Value* addr = genR(cg, d->_expr); // pointer
+    auto* ptrTy = llvm::dyn_cast<llvm::PointerType>(addr->getType());
+    if (!ptrTy) {
+      std::cerr << "LLVM backend: lhs of deref-assign is not a pointer\n";
+      std::exit(1);
+    }
+    llvm::Type* elemTy = ptrTy->getElementType();
+
+    llvm::Value* rhs = genR(cg, asn->rhs);
+    if (rhs->getType() != elemTy) {
+      // Again, could add casts if needed
+    }
+    cg.irb->CreateStore(rhs, addr);
+    return rhs;
+  }
+
+  std::cerr << "LLVM backend: unsupported assignment LHS kind\n";
+  std::exit(1);
+}
+
 
   // number literal
   if (auto* n = dynamic_cast<NodeNum*>(e)) {
