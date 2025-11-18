@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Set defaults to x86
-GCC="${LEO_CC:-clang}"
+
+GCC=clang
 TMP=tmp
 RUN_LINE="${LEO_RUN:-./$TMP}"
 TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
