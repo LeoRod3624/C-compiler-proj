@@ -34,7 +34,7 @@ jobs:
           cp ./leocc ../leocc
           
 
-      - name: Run ARM backend tests (AArch64 via QEMU)
+      - name: Run ARM backend tests (AArch64)
         env:
           LEO_CC: aarch64-linux-gnu-gcc
           LEO_RUN: ./tmp
