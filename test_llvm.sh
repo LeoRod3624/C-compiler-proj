@@ -64,4 +64,5 @@ assert 1  'int main(){ return -2 < -1; }'
 assert 10 'int main() { int i; i = 0; while (i < 10) { i = i + 1; } return i; }'
 assert 55 'int main() { int i, j; i = 0; j = 0; for (i = 0; i <= 10; i = i + 1) j = i + j; return j; }'
 
+assert 7 'int inc(int x) { return x + 1; } int main() { return inc(6); }'
 echo OK

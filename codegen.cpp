@@ -410,6 +410,9 @@ struct CG {
 
   // locals: name -> alloca
   std::unordered_map<std::string, llvm::AllocaInst*> locals;
+
+  // functions by name (for calls, multi-pass, etc.)
+  std::unordered_map<std::string, llvm::Function*> functions;
 };
 
 static llvm::Type* LEO_i64(llvm::LLVMContext& ctx) {
@@ -446,24 +449,61 @@ static void gen(CG& cg, NodeStmt* s);
 
 // Program → emit each function
 static void gen(CG& cg, NodeProgram* p) {
+  // ---------- Pass 1: create all functions with correct signatures ----------
+  for (auto* f : p->func_defs) {
+    // For now: every param is i64 (matches your int semantics)
+    std::vector<llvm::Type*> paramTypes;
+    paramTypes.reserve(f->params.size());
+    for (auto* param : f->params) {
+      (void)param; // currently unused, but later you can inspect c_type
+      paramTypes.push_back(LEO_i64(*cg.ctx));
+    }
+
+    auto* fnTy = llvm::FunctionType::get(LEO_i64(*cg.ctx),
+                                         paramTypes,
+                                         /*isVarArg=*/false);
+
+    auto* fn = llvm::Function::Create(fnTy,
+                                      llvm::Function::ExternalLinkage,
+                                      f->declarator,
+                                      cg.mod);
+
+    cg.functions[f->declarator] = fn;
+
+    // Give arguments nice names based on the AST params
+    unsigned idx = 0;
+    for (auto& arg : fn->args()) {
+      arg.setName(f->params[idx++]->varName);
+    }
+  }
+
+  // ---------- Pass 2: generate bodies ----------
   for (auto* f : p->func_defs) {
     cg.locals.clear();
-
-    auto* fnTy = llvm::FunctionType::get(LEO_i64(*cg.ctx), /*isVarArg=*/false);
-    auto* fn   = llvm::Function::Create(fnTy, llvm::Function::ExternalLinkage,
-                                        f->declarator, cg.mod);
-
+    auto* fn = cg.functions.at(f->declarator);
     cg.curFn = fn;
+
+    // Create entry block and set insertion point
     auto* entry = llvm::BasicBlock::Create(*cg.ctx, "entry", fn);
     cg.irb->SetInsertPoint(entry);
 
-    // Body
-    if (f->body) {
-      for (auto* st : f->body->stmt_list) gen(cg, st);
+    // Create allocas for parameters and store incoming values into them
+    unsigned idx = 0;
+    for (auto& arg : fn->args()) {
+      const std::string& name = f->params[idx++]->varName;
+      auto* slot = createEntryAlloca(cg, name);
+      cg.locals[name] = slot;
+      cg.irb->CreateStore(&arg, slot);
     }
 
-    // Default return 0 if none
-    if (!entry->getTerminator()) {
+    // Body statements
+    if (f->body) {
+      for (auto* st : f->body->stmt_list)
+        gen(cg, st);
+    }
+
+    // Default return 0 if no terminator in the current block
+    if (!cg.irb->GetInsertBlock()->getTerminator()) {
       cg.irb->CreateRet(llvm::ConstantInt::get(LEO_i64(*cg.ctx), 0));
     }
 
@@ -680,6 +720,29 @@ static llvm::Value* genR(CG& cg, NodeExpr* e) {
     auto* R = as_i64(cg, genR(cg, n->rhs));
     return bool_i1_to_i64(cg, cg.irb->CreateICmpNE(L, R, "cmpne"));
   }
+
+    // function call: f(args...)
+  if (auto* call = dynamic_cast<NodeFunctionCall*>(e)) {
+    // Look up the callee by name
+    llvm::Function* callee = cg.mod->getFunction(call->functionName);
+    if (!callee) {
+      std::cerr << "LLVM backend: unknown function '"
+                << call->functionName << "'\n";
+      std::exit(1);
+    }
+
+    // Generate arguments
+    std::vector<llvm::Value*> argVals;
+    argVals.reserve(call->args.size());
+    for (auto* argExpr : call->args) {
+      llvm::Value* v = genR(cg, argExpr);
+      argVals.push_back(as_i64(cg, v)); // ensure i64
+    }
+
+    // Emit the call
+    return cg.irb->CreateCall(callee, argVals, "calltmp");
+  }
+
 
   // fallback
   return llvm::UndefValue::get(LEO_i64(*cg.ctx));
