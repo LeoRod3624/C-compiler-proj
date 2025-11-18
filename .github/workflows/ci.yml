@@ -27,11 +27,7 @@ jobs:
 
       - name: Build leocc
         run: |
-          mkdir build
-          cd build
-          cmake -G Ninja ..
-          ninja 
-          cp ./leocc ../leocc
+          cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++
           
 
       - name: Run ARM backend tests (AArch64 via QEMU)
