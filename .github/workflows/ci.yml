@@ -21,7 +21,6 @@ jobs:
           sudo apt-get install -y \
             clang \
             llvm-14-dev \
-            qemu-user \
             gcc-aarch64-linux-gnu \
             cmake \
             ninja-build
