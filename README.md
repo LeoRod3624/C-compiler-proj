@@ -1,4 +1,8 @@
 As of now, I have managed to add Docker onto my project.
+-----------------------------------------------------------------------------------------------------
+WARNING: This project works best on linux and MAC OS. If you have a windows system it is best to use
+WSL2 to not change anything and truly get the "plug and play" feeling.
+-----------------------------------------------------------------------------------------------------
 
 When cloning the repo(assuming you also know to switch to the correct branch if need be)
 
