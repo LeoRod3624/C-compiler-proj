@@ -20,7 +20,5 @@ RUN apt update && \
 
 WORKDIR /app
 
-COPY docker-entrypoint.sh /usr/local/bin/leocc-entry
-RUN chmod +x /usr/local/bin/leocc-entry
 
-ENTRYPOINT ["leocc-entry"]
+
