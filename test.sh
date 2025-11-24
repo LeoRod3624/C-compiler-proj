@@ -2,7 +2,7 @@
 
 # Set defaults to x86
 
-LEO_BACKEND=""
+export LEO_BACKEND=""
 
 GCC=clang
 TMP=tmp
