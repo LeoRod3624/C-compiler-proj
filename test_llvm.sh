@@ -12,7 +12,7 @@ assert() {
 
     # Compile IR and link (unchanged)
     ./leocc "$input" >/dev/null || exit 1
-    clang -O2 output.ll -o tmp || exit 1
+    clang-21 -O2 output.ll -o tmp || exit 1
 
     # Run and capture raw exit code (0..255)
     ./tmp
