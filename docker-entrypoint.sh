@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-export LEO_BACKEND="llvm"
-
 cd /app
 
 # Sanity check: make sure repo is mounted
@@ -35,5 +33,6 @@ else
 fi
 
 cd /app
-echo "[leocc-entry] Done. Dropping you into /bin/bash in /app."
-exec /bin/bash
+# ./test_llvm.sh
+# echo "[leocc-entry] Done. Dropping you into /bin/bash in /app."
+

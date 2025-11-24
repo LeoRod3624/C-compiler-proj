@@ -1,6 +1,8 @@
 #!/bin/bash
 set -u  # (no -e, so we can capture non-zero exit codes)
 
+export LEO_BACKEND="llvm"
+
 GCC=clang
 TMP=tmp
 RUN_LINE="./$TMP"

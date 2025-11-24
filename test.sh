@@ -2,6 +2,8 @@
 
 # Set defaults to x86
 
+LEO_BACKEND=""
+
 GCC=clang
 TMP=tmp
 RUN_LINE="${LEO_RUN:-./$TMP}"
