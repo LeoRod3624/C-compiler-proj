@@ -1,6 +1,3 @@
-
-FIX THE YAML ERROR, PROBABLY A LLVM-14/21 THING
-
 name: CI for llvm_ir
 
 on:
@@ -16,6 +13,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: INSTALL DOCKER
+        run: |
+          apt install docker
 
       - name: RUN DOCKER
         run: |
