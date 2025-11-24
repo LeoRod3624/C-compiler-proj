@@ -433,11 +433,11 @@ static llvm::Type* leoType(CG& cg, CType* ct) {
   if (ct && ct->isIntType())
     return llvm::Type::getInt64Ty(*cg.ctx);
   // pointer 
-  if (ct && ct->isPtrType()) {
-    // For now, pointers point to 64-bit ints
-    llvm::Type* elemTy = llvm::Type::getInt64Ty(*cg.ctx);
-    return llvm::PointerType::get(elemTy, 0);
-}
+  if (ct->isPtrType()) {
+    CType* inner = ((CPtrType*)ct)->referenced_type;
+    llvm::Type* elemTy = leoType(cg, inner);   // RECURSE
+    return llvm::PointerType::get(elemTy, 0); 
+  }
 
   // Fallback: just use i64
   return llvm::Type::getInt64Ty(*cg.ctx);
@@ -714,7 +714,7 @@ if (auto* d = dynamic_cast<NodeDereference*>(e)) {
     std::cerr << "LLVM backend: dereference of non-pointer value\n";
     std::exit(1);
   }
-  llvm::Type* elemTy = llvm::Type::getInt64Ty(*cg.ctx); 
+  llvm::Type* elemTy = leoType(cg, d->c_type);
   return cg.irb->CreateLoad(elemTy, ptr);
 
 }
