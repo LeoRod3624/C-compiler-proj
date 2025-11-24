@@ -14,10 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: INSTALL DOCKER
-        run: |
-          apt install docker
-
       - name: RUN DOCKER
         run: |
           docker build -t leo .
