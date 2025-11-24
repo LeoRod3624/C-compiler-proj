@@ -1,3 +1,6 @@
+
+FIX THE YAML ERROR, PROBABLY A LLVM-14/21 THING
+
 name: CI for llvm_ir
 
 on:
@@ -14,15 +17,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LLVM and Clang
+      - name: RUN DOCKER
         run: |
-          set -ex
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang \
-            llvm-14-dev \
-            cmake \
-            ninja-build
+          docker build -t leo .
+          docker run --rm -it -v "$(pwd)":/app leo
 
       - name: Build leocc
         run: |
