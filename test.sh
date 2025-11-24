@@ -4,7 +4,7 @@
 
 export LEO_BACKEND=""
 
-GCC=clang
+GCC=clang-21
 TMP=tmp
 RUN_LINE="${LEO_RUN:-./$TMP}"
 TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
