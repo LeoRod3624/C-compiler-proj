@@ -176,7 +176,7 @@ assert 100 'int main() { int a, *b, **c, ***d; b = &a; c = &b; d = &c; ***d = 10
 assert 111 'int f(int* x, int* y) { return *x + *y;} int main() { int a = 50, b = 61; return f(&a, &b); }'
  
  # # 12. Pointer math inside function
-assert 130 'int f(int* p) { return *(p + 1); } int main() { int x = 5, y = 130; return f(&x); }'\
+assert 130 'int f(int* p) { return *(p + 1); } int main() { int x = 5, y = 130; return f(&x); }'
 
  # # 13. Return value instead of modifying via void
  #----------THIS IS THE LAST TEST THAT FAILED
