@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/Host.h>
+#include <llvm/TargetParser/Host.h>
 int NodeWhileStmt::counter = 0;
 int NodeForStmt::counter = 0;
 static string return_reg = "x0";
@@ -432,13 +432,12 @@ static llvm::Type* leoType(CG& cg, CType* ct) {
   // int -> i64
   if (ct && ct->isIntType())
     return llvm::Type::getInt64Ty(*cg.ctx);
-
-  // pointer -> recursively make a pointer type
+  // pointer 
   if (ct && ct->isPtrType()) {
-    auto* pt = static_cast<CPtrType*>(ct);
-    llvm::Type* elemTy = leoType(cg, pt->referenced_type);
-    return elemTy->getPointerTo();
-  }
+    // For now, pointers point to 64-bit ints
+    llvm::Type* elemTy = llvm::Type::getInt64Ty(*cg.ctx);
+    return llvm::PointerType::get(elemTy, 0);
+}
 
   // Fallback: just use i64
   return llvm::Type::getInt64Ty(*cg.ctx);
@@ -611,14 +610,15 @@ static void gen(CG& cg, NodeStmt* s) {
     cg.irb->CreateCondBr(condV, bodyBB, afterBB);
 
     // body:
-    fn->getBasicBlockList().push_back(bodyBB);
+
+    bodyBB->insertInto(fn);
     cg.irb->SetInsertPoint(bodyBB);
     gen(cg, w->_stmt);
     if (!cg.irb->GetInsertBlock()->getTerminator())
         cg.irb->CreateBr(condBB);  // loop back
 
     // after:
-    fn->getBasicBlockList().push_back(afterBB);
+    afterBB->insertInto(fn);
     cg.irb->SetInsertPoint(afterBB);
     return;
   }
@@ -651,20 +651,20 @@ static void gen(CG& cg, NodeStmt* s) {
     cg.irb->CreateCondBr(condV, bodyBB, afterBB);
 
     // body:
-    fn->getBasicBlockList().push_back(bodyBB);
+    bodyBB->insertInto(fn);
     cg.irb->SetInsertPoint(bodyBB);
     gen(cg, f->Body);
     if (!cg.irb->GetInsertBlock()->getTerminator())
         cg.irb->CreateBr(incBB);
 
     // inc:
-    fn->getBasicBlockList().push_back(incBB);
+    incBB->insertInto(fn);
     cg.irb->SetInsertPoint(incBB);
     if (f->Increment) (void)genR(cg, f->Increment);
     cg.irb->CreateBr(condBB);
 
     // after:
-    fn->getBasicBlockList().push_back(afterBB);
+    afterBB->insertInto(fn);
     cg.irb->SetInsertPoint(afterBB);
     return;
   }
@@ -677,14 +677,15 @@ static void gen(CG& cg, NodeStmt* s) {
 static llvm::Value* genR(CG& cg, NodeExpr* e) {
   // identifier load
   if (auto* id = dynamic_cast<NodeId*>(e)) {
-    auto it = cg.locals.find(id->id);
-    if (it == cg.locals.end()) {
-      std::cerr << "LLVM backend: unknown local '" << id->id << "'\n";
-      std::exit(1);
-    }
-    llvm::AllocaInst* slot = it->second;
-    llvm::Type* elemTy = slot->getAllocatedType();
-    return cg.irb->CreateLoad(elemTy, slot, id->id + ".val");
+  auto it = cg.locals.find(id->id);
+  if (it == cg.locals.end()) {
+    std::cerr << "LLVM backend: unknown local '" << id->id << "'\n";
+    std::exit(1);
+  }
+
+  llvm::AllocaInst* slot = it->second;
+  llvm::Type* elemTy = slot->getAllocatedType();
+  return cg.irb->CreateLoad(elemTy, slot, id->id + ".val");
   }
 
   // &expr  (for now: only &id)
@@ -713,8 +714,9 @@ if (auto* d = dynamic_cast<NodeDereference*>(e)) {
     std::cerr << "LLVM backend: dereference of non-pointer value\n";
     std::exit(1);
   }
-  llvm::Type* elemTy = ptrTy->getElementType();
-  return cg.irb->CreateLoad(elemTy, ptr, "deref");
+  llvm::Type* elemTy = llvm::Type::getInt64Ty(*cg.ctx); 
+  return cg.irb->CreateLoad(elemTy, ptr);
+
 }
 
 
@@ -746,7 +748,7 @@ if (auto* asn = dynamic_cast<NodeAssign*>(e)) {
       std::cerr << "LLVM backend: lhs of deref-assign is not a pointer\n";
       std::exit(1);
     }
-    llvm::Type* elemTy = ptrTy->getElementType();
+    llvm::Type* elemTy = cg.irb->getInt64Ty();
 
     llvm::Value* rhs = genR(cg, asn->rhs);
     if (rhs->getType() != elemTy) {
@@ -857,7 +859,8 @@ if (auto* asn = dynamic_cast<NodeAssign*>(e)) {
 
 // Entry point for LLVM backend (uses AST root)
 void build_LLVM_IR(Node* root, llvm::Module* module, llvm::IRBuilder<>* llvmBuilder) {
-  module->setTargetTriple(llvm::sys::getDefaultTargetTriple());
+  llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+  module->setTargetTriple(triple);
 
   CG cg{ &module->getContext(), module, llvmBuilder };
   if (auto* prog = dynamic_cast<NodeProgram*>(root)) {

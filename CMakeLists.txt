@@ -21,11 +21,11 @@ add_executable(leocc
 
 # Use the same LLVM include dirs as your Makefile
 target_include_directories(leocc PRIVATE
-    /usr/include/llvm-14
-    /usr/include/llvm-c-14
+    /usr/include/llvm-21
+    /usr/include/llvm-c-21
 )
 
 # Link against the same LLVM lib
 target_link_libraries(leocc PRIVATE
-    LLVM-14
+    LLVM-21
 )

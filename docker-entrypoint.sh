@@ -18,7 +18,7 @@ if [ ! -d build ] || { [ ! -f build/build.ninja ] && [ ! -f build/Makefile ]; };
   echo "[leocc-entry] Configuring CMake..."
   mkdir -p build
   cd build
-  cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+  cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
 else
   cd build
 fi
