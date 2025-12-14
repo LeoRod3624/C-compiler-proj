@@ -36,4 +36,4 @@ cd /app
 # ./test_llvm.sh
 # echo "[leocc-entry] Done. Dropping you into /bin/bash in /app."
 
-exec /bin/bash -i
+exec /bin/bash
