@@ -33,6 +33,9 @@ else
 fi
 
 cd /app
-# ./test_llvm.sh
-# echo "[leocc-entry] Done. Dropping you into /bin/bash in /app."
 
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+else
+  exec /bin/bash
+fi
