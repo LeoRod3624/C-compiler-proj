@@ -1,12 +1,11 @@
 #!/bin/bash
 
-# Set defaults to x86
 
 export LEO_BACKEND=""
 
-GCC=clang-21
+GCC=aarch64-linux-gnu-gcc
 TMP=tmp
-RUN_LINE="${LEO_RUN:-./$TMP}"
+RUN_LINE="${LEO_RUN:-qemu-aarch64 ./$TMP}"
 TEST_FUNCTIONS=c_test_functions.c # External c file for function definitions
 
 assert() {

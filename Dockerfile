@@ -3,12 +3,16 @@ FROM ubuntu:22.04
 RUN apt-get update && \
     apt update && \
     apt-get install -y \
+      file binutils \
       cmake \
       ninja-build \
       wget \
       gnupg2 \
       build-essential \
-      gdb
+      gdb \
+      qemu-user \
+      gcc-aarch64-linux-gnu \
+      binutils-aarch64-linux-gnu
       
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add && \
