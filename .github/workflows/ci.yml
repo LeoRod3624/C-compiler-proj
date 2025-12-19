@@ -19,7 +19,7 @@ jobs:
           docker build -t leo .
       - name: Build compiler 
         run: |
-          docker run --rm -v "$(pwd)":/app leo ./docker-entrypoint.sh
+          docker run --rm -v "$(pwd)":/app leo ./build-leocc.sh
       - name: Run ARM tests 
         run: |
           docker run --rm -v "$(pwd)":/app leo ./test.sh
