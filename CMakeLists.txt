@@ -17,6 +17,7 @@ add_executable(leocc
     ast.cpp
     codegen.cpp
     leocc.hpp
+    codegen_llvm.cpp
 )
 
 # Use the same LLVM include dirs as your Makefile

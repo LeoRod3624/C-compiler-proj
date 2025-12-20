@@ -40,8 +40,25 @@ int main(int argc, char* argv[]){
 
     Node* abstract_tree = abstract_parse();
     
-    do_codegen(abstract_tree);
 
+
+    //implement switcher here
+
+    const char* which = std::getenv("LEO_BACKEND");
+    assert(which && "LEO_BACKEND must be defined, either arm or llvm");
+    bool use_llvm = (which && std::string(which) == "llvm");
+    bool use_arm =  (which && std::string(which) == "arm");
+
+
+    if (use_arm) {
+        do_codegen(abstract_tree);
+    }
+    else if(use_llvm){
+        do_codegen_llvm(abstract_tree);
+    }
+    else{
+        assert(false && "Didnt define a backend or didnt choose 1 of 2 options. Must be llvm or arm as those are the only targets right now.");
+    }
 
     return 0;
 }

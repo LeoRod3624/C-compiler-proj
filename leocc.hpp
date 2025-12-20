@@ -311,6 +311,6 @@ public:
 Node* abstract_parse();
 // END ABSTRACT SYNTAX TREE
 
-// START CODEGEN
 void do_codegen(Node* _expr);
-// END CODEGEN
+void do_codegen_llvm(Node* _expr);
+

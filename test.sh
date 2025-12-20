@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-export LEO_BACKEND=""
+export LEO_BACKEND="arm"
 
 GCC=aarch64-linux-gnu-gcc
 TMP=tmp
